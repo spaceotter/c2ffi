@@ -13,7 +13,7 @@ if(NOT LLVM_FOUND)
 endif()
 
 
-find_package(Clang)
+find_package(Clang HINTS "${LLVM_INSTALL_PREFIX}")
 
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "LLVM installed in ${LLVM_INSTALL_PREFIX}")
