@@ -32,7 +32,7 @@
 #include <clang/AST/Decl.h>
 #include <clang/Frontend/CompilerInstance.h>
 
-#include "c2ffi.h"
+#include "c2ffi.hpp"
 
 namespace c2ffi {
     class C2FFIASTConsumer;

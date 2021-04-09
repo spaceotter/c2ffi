@@ -25,8 +25,8 @@
 #include <set>
 #include <map>
 #include <clang/AST/ASTConsumer.h>
-#include "c2ffi.h"
-#include "c2ffi/opt.h"
+#include "c2ffi.hpp"
+#include "c2ffi/opt.hpp"
 
 #define if_cast(v,T,e) if(T *v = llvm::dyn_cast<T>((e)))
 #define if_const_cast(v,T,e) if(const T *v = llvm::dyn_cast<T>((e)))

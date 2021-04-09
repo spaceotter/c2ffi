@@ -32,7 +32,7 @@
 #include <llvm/Support/TimeProfiler.h>
 #include <cstdio>
 #include <memory>
-#include "c2ffi/iparseast.h"
+#include "c2ffi/iparseast.hpp"
 
 using namespace clang;
 

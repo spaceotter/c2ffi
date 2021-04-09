@@ -49,8 +49,8 @@
 
 #include <sys/stat.h>
 
-#include "c2ffi/init.h"
-#include "c2ffi/opt.h"
+#include "c2ffi/init.hpp"
+#include "c2ffi/opt.hpp"
 
 using namespace c2ffi;
 

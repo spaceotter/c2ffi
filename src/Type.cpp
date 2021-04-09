@@ -25,8 +25,8 @@
 #include <clang/AST/DeclObjC.h>
 #include <clang/AST/DeclTemplate.h>
 #include <clang/AST/ASTContext.h>
-#include "c2ffi.h"
-#include "c2ffi/ast.h"
+#include "c2ffi.hpp"
+#include "c2ffi/ast.hpp"
 
 using namespace c2ffi;
 

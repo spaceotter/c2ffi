@@ -43,12 +43,12 @@
 #include <clang/Parse/Parser.h>
 #include <clang/Parse/ParseAST.h>
 
-#include "c2ffi.h"
-#include "c2ffi/init.h"
-#include "c2ffi/opt.h"
-#include "c2ffi/ast.h"
-#include "c2ffi/macros.h"
-#include "c2ffi/iparseast.h"
+#include "c2ffi.hpp"
+#include "c2ffi/init.hpp"
+#include "c2ffi/opt.hpp"
+#include "c2ffi/ast.hpp"
+#include "c2ffi/macros.hpp"
+#include "c2ffi/iparseast.hpp"
 
 using namespace c2ffi;
 

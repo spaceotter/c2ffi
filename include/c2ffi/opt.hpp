@@ -29,7 +29,7 @@
 #include <iostream>
 #include <fstream>
 
-#include "c2ffi.h"
+#include "c2ffi.hpp"
 
 namespace c2ffi {
     typedef std::vector<std::string> IncludeVector;

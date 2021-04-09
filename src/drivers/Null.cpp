@@ -19,7 +19,7 @@
    along with c2ffi.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "c2ffi.h"
+#include "c2ffi.hpp"
 
 using namespace c2ffi;
 

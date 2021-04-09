@@ -21,8 +21,8 @@
 
 #include <sstream>
 
-#include "c2ffi.h"
-#include "c2ffi/ast.h"
+#include "c2ffi.hpp"
+#include "c2ffi/ast.hpp"
 
 using namespace c2ffi;
 using namespace std;

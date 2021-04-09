@@ -29,8 +29,8 @@
 #include <clang/Lex/Preprocessor.h>
 #include <clang/Lex/Token.h>
 
-#include "c2ffi.h"
-#include "c2ffi/macros.h"
+#include "c2ffi.hpp"
+#include "c2ffi/macros.hpp"
 
 typedef std::set<std::string>              StringSet;
 typedef std::map<std::string, std::string> RedefMap;

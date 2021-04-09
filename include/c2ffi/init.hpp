@@ -19,15 +19,20 @@
     along with c2ffi.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef C2FFI_MACROS_H
-#define C2FFI_MACROS_H
+#ifndef C2FFI_INIT_H
+#define C2FFI_INIT_H
 
-#include "c2ffi/opt.h"
-#include "c2ffi.h"
+#include "c2ffi.hpp"
+#include "c2ffi/opt.hpp"
 
 namespace c2ffi {
-    void process_macros(clang::CompilerInstance &ci, std::ostream &os,
-                        const config &config);
+    void add_include(clang::CompilerInstance &ci, const char *path,
+                     bool isAngled = false, bool show_error = false);
+    void add_includes(clang::CompilerInstance &ci,
+                      c2ffi::IncludeVector &v, bool is_angled = false,
+                      bool show_error = false);
+
+    void init_ci(config &c, clang::CompilerInstance &ci);
 }
 
-#endif /* C2FFI_MACROS_H */
+#endif /* C2FFI_INIT_H */

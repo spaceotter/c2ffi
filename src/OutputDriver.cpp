@@ -20,7 +20,7 @@
 
 #include <stdarg.h>
 #include <stdio.h>
-#include "c2ffi.h"
+#include "c2ffi.hpp"
 
 /*** Add new OutputDrivers here: ***************************************/
 

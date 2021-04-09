@@ -26,8 +26,8 @@
 
 #include <llvm/Support/Host.h>
 
-#include "c2ffi.h"
-#include "c2ffi/opt.h"
+#include "c2ffi.hpp"
+#include "c2ffi/opt.hpp"
 
 static char short_opt[] = "I:i:D:M:mo:hN:x:A:TEv";
 

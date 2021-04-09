@@ -25,7 +25,7 @@
 #include <iostream>
 #include <string>
 
-#include "c2ffi/predecl.h"
+#include "c2ffi/predecl.hpp"
 
 #define DEFWRITER(x) virtual void write(OutputDriver &od) const { od.write((const x&)*this); }
 
@@ -104,8 +104,8 @@ namespace c2ffi {
     extern OutputDriverField OutputDrivers[];
 }
 
-#include "c2ffi/template.h"
-#include "c2ffi/type.h"
-#include "c2ffi/decl.h"
+#include "c2ffi/template.hpp"
+#include "c2ffi/type.hpp"
+#include "c2ffi/decl.hpp"
 
 #endif /* C2FFI_H */

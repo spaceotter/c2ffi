@@ -26,8 +26,8 @@
 #include <utility>
 #include <vector>
 #include <clang/AST/Decl.h>
-#include "c2ffi.h"
-#include "c2ffi/type.h"
+#include "c2ffi.hpp"
+#include "c2ffi/type.hpp"
 
 namespace c2ffi {
     class Decl : public Writable {

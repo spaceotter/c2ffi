@@ -25,17 +25,8 @@ file(GLOB SOURCE_GLOB
   ${SOURCE_ROOT}/src/drivers/*.cpp
   )
 
-file(GLOB HEADER_GLOB
-  ${SOURCE_ROOT}/include/*.h
-  ${SOURCE_ROOT}/include/c2ffi/*.h
-  )
-
 set(SOURCE_FILES
   ${SOURCE_GLOB}
-  )
-
-set(HEADER_FILES
-  ${HEADER_GLOB}
   )
 
 # Find Clang resource directory with Clang executable.
@@ -59,13 +50,13 @@ if(NOT CLANG_RESOURCE_DIR)
     endif()
 endif()
 
-add_executable(c2ffi ${SOURCE_FILES} ${HEADER_FILES})
+add_executable(c2ffi ${SOURCE_FILES})
 set_property(SOURCE src/init.cpp APPEND PROPERTY COMPILE_DEFINITIONS
     CLANG_RESOURCE_DIRECTORY=R"\(${CLANG_RESOURCE_DIR}\)")
 target_cxx_std(c2ffi 17)
 target_include_directories(c2ffi PUBLIC
   ${LLVM_INCLUDE_DIRS}
-  ${SOURCE_ROOT}/src/include
+  ${SOURCE_ROOT}/include
   )
 target_link_libraries(c2ffi PUBLIC clang-cpp LLVM)
 
