@@ -29,7 +29,7 @@
 #include "c2ffi.h"
 #include "c2ffi/opt.h"
 
-static char short_opt[] = "I:i:D:M:o:hN:x:A:T:E";
+static char short_opt[] = "I:i:D:M:o:hN:x:A:T:Ev";
 
 enum {
     WITH_MACRO_DEFS = CHAR_MAX+1,
@@ -87,6 +87,11 @@ void c2ffi::process_args(config &config, int argc, char *argv[]) {
             break;
 
         switch(o) {
+            case 'v': {
+                config.verbose = true;
+                break;
+            }
+
             case 'M': {
                 if(config.macro_output) {
                     std::cerr << "Error: You may only specify one macro file"
@@ -261,6 +266,7 @@ void usage(void) {
         "Usage: c2ffi [options ...] FILE\n"
         "\n"
         "Options:\n"
+        "      -v                   verbose output\n"
         "      -I, --include        Add a \"LOCAL\" include path\n"
         "      -i, --sys-include    Add a <system> include path\n"
         "      --nostdinc           Disable standard include path\n"

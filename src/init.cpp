@@ -130,6 +130,13 @@ void c2ffi::init_ci(config &c, clang::CompilerInstance &ci) {
     }
 
     const clang::driver::Command &Cmd = clang::cast<clang::driver::Command>(*Jobs.begin());
+    if (c.verbose) {
+        std::cerr << "clang internal args:" << std::endl;
+        auto &arg = Cmd.getArguments();
+        for (size_t i = 0; i < arg.size(); i++) {
+            std::cerr << "arg " << i << ": " << arg[i] << std::endl;
+        }
+    }
     if (llvm::StringRef(Cmd.getCreator().getName()) != "clang") {
         Diags.Report(clang::diag::err_fe_expected_clang_command);
         exit(1);

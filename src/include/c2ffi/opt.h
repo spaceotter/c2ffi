@@ -42,7 +42,8 @@ namespace c2ffi {
                    with_macro_defs(false),
                    nostdinc(false),
                    wchar_size(0),
-                   error_limit(0)
+                   error_limit(0),
+                   verbose(false)
         { }
 
         IncludeVector includes;
@@ -72,6 +73,8 @@ namespace c2ffi {
         int wchar_size;
 
         int error_limit;
+
+        bool verbose;
     };
 
     void process_args(config &config, int argc, char *argv[]);
