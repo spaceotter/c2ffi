@@ -24,61 +24,62 @@
 
 #include <clang/Frontend/FrontendOptions.h>
 
-#include <vector>
-#include <string>
-#include <iostream>
 #include <fstream>
+#include <iostream>
+#include <string>
+#include <vector>
 
 #include "c2ffi.hpp"
 
 namespace c2ffi {
-    typedef std::vector<std::string> IncludeVector;
+typedef std::vector<std::string> IncludeVector;
 
-    struct config {
-        config() : od(NULL), macro_output(nullptr),
-                   macro_inject(false),
-                   template_output(false),
-                   std(clang::LangStandard::lang_unspecified),
-                   preprocess_only(false),
-                   with_macro_defs(false),
-                   nostdinc(false),
-                   verbose(false),
-                   wchar_size(0),
-                   error_limit(0)
-        { }
+struct config {
+  config()
+      : od(NULL),
+        macro_output(nullptr),
+        macro_inject(false),
+        template_output(false),
+        std(clang::LangStandard::lang_unspecified),
+        preprocess_only(false),
+        with_macro_defs(false),
+        nostdinc(false),
+        verbose(false),
+        wchar_size(0),
+        error_limit(0) {}
 
-        IncludeVector includes;
-        IncludeVector sys_includes;
-        OutputDriver *od;
+  IncludeVector includes;
+  IncludeVector sys_includes;
+  OutputDriver *od;
 
-        std::ostream  *output;
-        std::ofstream  *macro_output;
-        bool macro_inject;
-        bool template_output;
+  std::ostream *output;
+  std::ofstream *macro_output;
+  bool macro_inject;
+  bool template_output;
 
-        std::string c2ffi_binpath;
-        std::string filename;
-        std::string to_namespace;
+  std::string c2ffi_binpath;
+  std::string filename;
+  std::string to_namespace;
 
-        clang::InputKind kind;
-        std::string lang;
-        clang::LangStandard::Kind std;
-        std::string arch;
+  clang::InputKind kind;
+  std::string lang;
+  clang::LangStandard::Kind std;
+  std::string arch;
 
-        bool preprocess_only;
-        bool with_macro_defs;
-        bool declspec;
-        bool fail_on_error;
-        bool warn_as_error;
-        bool nostdinc;
-        bool verbose;
+  bool preprocess_only;
+  bool with_macro_defs;
+  bool declspec;
+  bool fail_on_error;
+  bool warn_as_error;
+  bool nostdinc;
+  bool verbose;
 
-        int wchar_size;
+  int wchar_size;
 
-        int error_limit;
-    };
+  int error_limit;
+};
 
-    void process_args(config &config, int argc, char *argv[]);
-}
+void process_args(config &config, int argc, char *argv[]);
+}  // namespace c2ffi
 
 #endif /* C2FFI_OPT_H */

@@ -27,85 +27,88 @@
 
 #include "c2ffi/predecl.hpp"
 
-#define DEFWRITER(x) virtual void write(OutputDriver &od) const { od.write((const x&)*this); }
+#define DEFWRITER(x) \
+  virtual void write(OutputDriver &od) const { od.write((const x &)*this); }
 
 namespace c2ffi {
-    class OutputDriver;
+class OutputDriver;
 
-    class Writable {
-    public:
-        virtual ~Writable() { }
-        virtual void write(OutputDriver &od) const = 0;
-    };
+class Writable {
+ public:
+  virtual ~Writable() {}
+  virtual void write(OutputDriver &od) const = 0;
+};
 
-    class OutputDriver {
-        std::ostream *_os;
-    public:
-        OutputDriver(std::ostream *os)
-            : _os(os) { }
-        virtual ~OutputDriver() { }
+class OutputDriver {
+  std::ostream *_os;
 
-        /**
-           write_header()    - Called before other output
-           write_namespace() - Called after header
-           write_between()   - Called _between_ declarations, but _not_
-                               after write_namespace().
-           write_footer()    - Called after all other output.
-         **/
-        virtual void write_header() { }
-        virtual void write_namespace(const std::string &ns) { }
-        virtual void write_between() { }
-        virtual void write_footer() { }
+ public:
+  OutputDriver(std::ostream *os) : _os(os) {}
+  virtual ~OutputDriver() {}
 
-        virtual void write_comment(const char *text) { }
+  /**
+     write_header()    - Called before other output
+     write_namespace() - Called after header
+     write_between()   - Called _between_ declarations, but _not_
+                         after write_namespace().
+     write_footer()    - Called after all other output.
+   **/
+  virtual void write_header() {}
+  virtual void write_namespace(const std::string &ns) {}
+  virtual void write_between() {}
+  virtual void write_footer() {}
 
-        virtual void write(const SimpleType&) = 0;
-        virtual void write(const TypedefType &) = 0;
-        virtual void write(const BasicType &) = 0;
-        virtual void write(const BitfieldType&) = 0;
-        virtual void write(const PointerType&) = 0;
-        virtual void write(const ArrayType&) = 0;
-        virtual void write(const RecordType&) = 0;
-        virtual void write(const EnumType&) = 0;
-        virtual void write(const ReferenceType&) { }
-        virtual void write(const TemplateType&) { }
-        virtual void write(const ComplexType&) = 0;
+  virtual void write_comment(const char *text) {}
 
-        virtual void write(const UnhandledDecl &d) = 0;
-        virtual void write(const VarDecl &d) = 0;
-        virtual void write(const FunctionDecl &d) = 0;
-        virtual void write(const TypedefDecl &d) = 0;
-        virtual void write(const RecordDecl &d) = 0;
-        virtual void write(const EnumDecl &d) = 0;
+  virtual void write(const SimpleType &) = 0;
+  virtual void write(const TypedefType &) = 0;
+  virtual void write(const BasicType &) = 0;
+  virtual void write(const BitfieldType &) = 0;
+  virtual void write(const PointerType &) = 0;
+  virtual void write(const ArrayType &) = 0;
+  virtual void write(const RecordType &) = 0;
+  virtual void write(const EnumType &) = 0;
+  virtual void write(const ReferenceType &) {}
+  virtual void write(const TemplateType &) {}
+  virtual void write(const ComplexType &) = 0;
 
-        virtual void write(const CXXRecordDecl &d) { }
-        virtual void write(const CXXFunctionDecl &d) { }
-        virtual void write(const CXXNamespaceDecl &d) { }
+  virtual void write(const UnhandledDecl &d) = 0;
+  virtual void write(const VarDecl &d) = 0;
+  virtual void write(const FunctionDecl &d) = 0;
+  virtual void write(const TypedefDecl &d) = 0;
+  virtual void write(const RecordDecl &d) = 0;
+  virtual void write(const EnumDecl &d) = 0;
 
-        virtual void write(const ObjCInterfaceDecl &d) { }
-        virtual void write(const ObjCCategoryDecl &d) { }
-        virtual void write(const ObjCProtocolDecl &d) { }
+  virtual void write(const CXXRecordDecl &d) {}
+  virtual void write(const CXXFunctionDecl &d) {}
+  virtual void write(const CXXNamespaceDecl &d) {}
 
-        virtual void write(const Writable& w) { w.write(*this); }
+  virtual void write(const ObjCInterfaceDecl &d) {}
+  virtual void write(const ObjCCategoryDecl &d) {}
+  virtual void write(const ObjCProtocolDecl &d) {}
 
-        void set_os(std::ostream *os) { _os = os; }
-        std::ostream& os() { return *_os; }
+  virtual void write(const Writable &w) { w.write(*this); }
 
-        void comment(char *fmt, ...);
-    };
+  void set_os(std::ostream *os) { _os = os; }
+  std::ostream &os() { return *_os; }
 
-    typedef OutputDriver* (*MakeOutputDriver)(std::ostream *os);
+  void comment(char *fmt, ...);
+};
 
-    struct OutputDriverField {
-        const char* name;
-        MakeOutputDriver fn;
-    };
+typedef OutputDriver *(*MakeOutputDriver)(std::ostream *os);
 
-    extern OutputDriverField OutputDrivers[];
-}
+struct OutputDriverField {
+  const char *name;
+  MakeOutputDriver fn;
+};
 
+extern OutputDriverField OutputDrivers[];
+}  // namespace c2ffi
+
+/* clang-format off */
 #include "c2ffi/template.hpp"
-#include "c2ffi/type.hpp"
 #include "c2ffi/decl.hpp"
+#include "c2ffi/type.hpp"
+/* clang-format on */
 
 #endif /* C2FFI_H */

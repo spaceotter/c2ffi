@@ -22,17 +22,18 @@
 #ifndef C2FFI_PARSE_PARSEAST_H
 #define C2FFI_PARSE_PARSEAST_H
 
-#include "clang/Basic/LangOptions.h"
 #include <clang/Sema/Sema.h>
 
+#include "clang/Basic/LangOptions.h"
+
 namespace c2ffi {
-  using namespace clang;
+using namespace clang;
 
-  /// Parse the extra file known to the preprocessor, amending an
-  /// abstract syntax tree.
-  void IncrementalParseAST(Sema &S, FileID &fid, bool PrintStats = false,
-                bool SkipFunctionBodies = false);
+/// Parse the extra file known to the preprocessor, amending an
+/// abstract syntax tree.
+void IncrementalParseAST(Sema &S, FileID &fid, bool PrintStats = false,
+                         bool SkipFunctionBodies = false);
 
-}  // end namespace clang
+}  // namespace c2ffi
 
 #endif

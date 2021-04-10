@@ -20,34 +20,34 @@
 
 #include <stdarg.h>
 #include <stdio.h>
+
 #include "c2ffi.hpp"
 
 /*** Add new OutputDrivers here: ***************************************/
 
 namespace c2ffi {
-    OutputDriver* MakeNullOutputDriver(std::ostream *os);
-    OutputDriver* MakeJSONOutputDriver(std::ostream *os);
-    OutputDriver* MakeSexpOutputDriver(std::ostream *os);
+OutputDriver *MakeNullOutputDriver(std::ostream *os);
+OutputDriver *MakeJSONOutputDriver(std::ostream *os);
+OutputDriver *MakeSexpOutputDriver(std::ostream *os);
 
-    OutputDriverField OutputDrivers[] = {
-        { "json", &MakeJSONOutputDriver },
-        { "sexp", &MakeSexpOutputDriver },
-        { "null", &MakeNullOutputDriver },
-        { 0, 0 }
-    };
-}
+OutputDriverField OutputDrivers[] = {{"json", &MakeJSONOutputDriver},
+                                     {"sexp", &MakeSexpOutputDriver},
+                                     {"null", &MakeNullOutputDriver},
+                                     {0, 0}};
+}  // namespace c2ffi
 
 /***********************************************************************/
 
 namespace c2ffi {
-    void OutputDriver::comment(char *fmt, ...) {
-        va_list ap;
-        char buf[1024];
-        va_start(ap, fmt);
+void OutputDriver::comment(char *fmt, ...) {
+  va_list ap;
+  char buf[1024];
+  va_start(ap, fmt);
 
-        vsnprintf(buf, sizeof(buf), fmt, ap);
-        write_comment(buf);
+  vsnprintf(buf, sizeof(buf), fmt, ap);
+  write_comment(buf);
 
-        va_end(ap);
-    }
+  va_end(ap);
 }
+
+}  // namespace c2ffi

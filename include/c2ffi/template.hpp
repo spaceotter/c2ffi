@@ -22,42 +22,40 @@
 #ifndef C2FFI_TEMPLATE_H
 #define C2FFI_TEMPLATE_H
 
+#include <clang/AST/DeclTemplate.h>
+#include <clang/AST/TemplateBase.h>
+#include <clang/Frontend/CompilerInstance.h>
+
 #include <string>
 #include <vector>
 
-#include <clang/AST/TemplateBase.h>
-#include <clang/AST/DeclTemplate.h>
-#include <clang/Frontend/CompilerInstance.h>
-
 namespace c2ffi {
-    class C2FFIASTConsumer;
+class C2FFIASTConsumer;
 
-    class TemplateArg {
-        Type *_type;
-        bool _has_val;
-        std::string _val;
+class TemplateArg {
+  Type *_type;
+  bool _has_val;
+  std::string _val;
 
-    public:
-        TemplateArg(C2FFIASTConsumer *ast,
-                    const clang::TemplateArgument &arg);
-        bool has_val() const { return _has_val; }
-        const Type* type() const { return _type; }
-        const std::string& val() const { return _val; }
-    };
+ public:
+  TemplateArg(C2FFIASTConsumer *ast, const clang::TemplateArgument &arg);
+  bool has_val() const { return _has_val; }
+  const Type *type() const { return _type; }
+  const std::string &val() const { return _val; }
+};
 
-    typedef std::vector<TemplateArg*> TemplateArgVector;
+typedef std::vector<TemplateArg *> TemplateArgVector;
 
-    class TemplateMixin {
-        bool _is_template;
-        TemplateArgVector _args;
+class TemplateMixin {
+  bool _is_template;
+  TemplateArgVector _args;
 
-    public:
-        TemplateMixin(C2FFIASTConsumer *ast,
-                      const clang::TemplateArgumentList *arglist);
+ public:
+  TemplateMixin(C2FFIASTConsumer *ast, const clang::TemplateArgumentList *arglist);
 
-        const TemplateArgVector& args() const { return _args; }
-        bool is_template() const { return _is_template; }
-    };
-}
+  const TemplateArgVector &args() const { return _args; }
+  bool is_template() const { return _is_template; }
+};
+}  // namespace c2ffi
 
-#endif // C2FFI_TEMPLATE_H
+#endif  // C2FFI_TEMPLATE_H

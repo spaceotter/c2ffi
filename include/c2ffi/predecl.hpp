@@ -23,33 +23,33 @@
 #define C2FFI_PREDECL_H
 
 namespace c2ffi {
-    class Type;
-    class SimpleType;
-    class TypedefType;
-    class BasicType;
-    class BitfieldType;
-    class PointerType;
-    class ArrayType;
-    class RecordType;
-    class EnumType;
-    class ComplexType;
-    class DeclType;
-    class ReferenceType;
-    class TemplateType;
+class Type;
+class SimpleType;
+class TypedefType;
+class BasicType;
+class BitfieldType;
+class PointerType;
+class ArrayType;
+class RecordType;
+class EnumType;
+class ComplexType;
+class DeclType;
+class ReferenceType;
+class TemplateType;
 
-    class Decl;
-    class UnhandledDecl;
-    class TypeDecl;
-    class VarDecl;
-    class FunctionDecl;
-    class TypedefDecl;
-    class RecordDecl;
-    class EnumDecl;
-    class CXXRecordDecl;
-    class CXXFunctionDecl;
-    class CXXNamespaceDecl;
-    class ObjCInterfaceDecl;
-    class ObjCCategoryDecl;
-    class ObjCProtocolDecl;
-}
+class Decl;
+class UnhandledDecl;
+class TypeDecl;
+class VarDecl;
+class FunctionDecl;
+class TypedefDecl;
+class RecordDecl;
+class EnumDecl;
+class CXXRecordDecl;
+class CXXFunctionDecl;
+class CXXNamespaceDecl;
+class ObjCInterfaceDecl;
+class ObjCCategoryDecl;
+class ObjCProtocolDecl;
+}  // namespace c2ffi
 #endif /* C2FFI_PREDECL_H */

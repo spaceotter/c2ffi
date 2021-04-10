@@ -22,89 +22,89 @@
 #ifndef C2FFI_AST_H
 #define C2FFI_AST_H
 
-#include <set>
-#include <map>
 #include <clang/AST/ASTConsumer.h>
+
+#include <map>
+#include <set>
+
 #include "c2ffi.hpp"
 #include "c2ffi/opt.hpp"
 
-#define if_cast(v,T,e) if(T *v = llvm::dyn_cast<T>((e)))
-#define if_const_cast(v,T,e) if(const T *v = llvm::dyn_cast<T>((e)))
+#define if_cast(v, T, e) if (T *v = llvm::dyn_cast<T>((e)))
+#define if_const_cast(v, T, e) if (const T *v = llvm::dyn_cast<T>((e)))
 
 namespace c2ffi {
-    typedef std::set<const clang::Decl*> ClangDeclSet;
-    typedef std::map<const clang::Decl*, int> ClangDeclIDMap;
+typedef std::set<const clang::Decl *> ClangDeclSet;
+typedef std::map<const clang::Decl *, int> ClangDeclIDMap;
 
-    class C2FFIASTConsumer : public clang::ASTConsumer {
-        config &_config;
+class C2FFIASTConsumer : public clang::ASTConsumer {
+  config &_config;
 
-        clang::CompilerInstance &_ci;
-        c2ffi::OutputDriver *_od;
-        bool _mid;
+  clang::CompilerInstance &_ci;
+  c2ffi::OutputDriver *_od;
+  bool _mid;
 
-        ClangDeclSet _cur_decls;
-        ClangDeclIDMap _decl_map;
-        unsigned int _decl_id;
+  ClangDeclSet _cur_decls;
+  ClangDeclIDMap _decl_map;
+  unsigned int _decl_id;
 
-        ClangDeclSet _cxx_decls;
+  ClangDeclSet _cxx_decls;
 
-    public:
-        C2FFIASTConsumer(clang::CompilerInstance &ci, config &config)
-            : _config(config), _ci(ci), _od(config.od), _mid(false), _decl_id(0) { }
+ public:
+  C2FFIASTConsumer(clang::CompilerInstance &ci, config &config)
+      : _config(config), _ci(ci), _od(config.od), _mid(false), _decl_id(0) {}
 
-        clang::CompilerInstance& ci() { return _ci; }
-        c2ffi::OutputDriver& od() { return *_od; }
+  clang::CompilerInstance &ci() { return _ci; }
+  c2ffi::OutputDriver &od() { return *_od; }
 
-        virtual bool HandleTopLevelDecl(clang::DeclGroupRef d);
-        virtual void HandleTopLevelDeclInObjCContainer(clang::DeclGroupRef d);
+  virtual bool HandleTopLevelDecl(clang::DeclGroupRef d);
+  virtual void HandleTopLevelDeclInObjCContainer(clang::DeclGroupRef d);
 
-        void HandleDecl(clang::Decl *d, const clang::NamedDecl *ns = NULL);
-        void HandleDeclContext(const clang::DeclContext *dc,
-                               const clang::NamedDecl *ns);
-        void HandleNS(const clang::NamespaceDecl *ns);
-        void PostProcess(std::ostream& out);
+  void HandleDecl(clang::Decl *d, const clang::NamedDecl *ns = NULL);
+  void HandleDeclContext(const clang::DeclContext *dc, const clang::NamedDecl *ns);
+  void HandleNS(const clang::NamespaceDecl *ns);
+  void PostProcess(std::ostream &out);
 
-        Decl* proc(const clang::Decl*, Decl*);
+  Decl *proc(const clang::Decl *, Decl *);
 
-        bool is_cur_decl(const clang::Decl *d) const;
-        unsigned int decl_id(const clang::Decl *d) const;
-        unsigned int add_decl(const clang::Decl *d) {
-            if(!d) {
-                return 0;
-            } else if(!_decl_map.count(d)) {
-                _decl_map[d] = ++_decl_id;
-                return _decl_id;
-            } else {
-                return _decl_map[d];
-            }
-        }
-        unsigned int add_cxx_decl(const clang::Decl *d) {
-            if(d) {
-                _cxx_decls.insert(d);
-                return add_decl(d);
-            }
+  bool is_cur_decl(const clang::Decl *d) const;
+  unsigned int decl_id(const clang::Decl *d) const;
+  unsigned int add_decl(const clang::Decl *d) {
+    if (!d) {
+      return 0;
+    } else if (!_decl_map.count(d)) {
+      _decl_map[d] = ++_decl_id;
+      return _decl_id;
+    } else {
+      return _decl_map[d];
+    }
+  }
+  unsigned int add_cxx_decl(const clang::Decl *d) {
+    if (d) {
+      _cxx_decls.insert(d);
+      return add_decl(d);
+    }
 
-            return 0;
-        }
+    return 0;
+  }
 
-        Decl* make_decl(const clang::Decl *d, bool is_toplevel = true);
-        Decl* make_decl(const clang::NamedDecl *d, bool is_toplevel = true);
-        Decl* make_decl(const clang::FunctionDecl *d, bool is_toplevel = true);
-        Decl* make_decl(const clang::VarDecl *d, bool is_toplevel = true);
-        Decl* make_decl(const clang::RecordDecl *d, bool is_toplevel = true);
-        Decl* make_decl(const clang::TypedefDecl *d, bool is_toplevel = true);
-        Decl* make_decl(const clang::EnumDecl *d, bool is_toplevel = true);
-        Decl* make_decl(const clang::CXXRecordDecl *d, bool is_toplevel = true);
-        Decl* make_decl(const clang::NamespaceDecl *d, bool is_toplevel = true);
-        Decl* make_decl(const clang::ObjCInterfaceDecl *d, bool is_toplevel = true);
-        Decl* make_decl(const clang::ObjCCategoryDecl *d, bool is_toplevel = true);
-        Decl* make_decl(const clang::ObjCProtocolDecl *d, bool is_toplevel = true);
+  Decl *make_decl(const clang::Decl *d, bool is_toplevel = true);
+  Decl *make_decl(const clang::NamedDecl *d, bool is_toplevel = true);
+  Decl *make_decl(const clang::FunctionDecl *d, bool is_toplevel = true);
+  Decl *make_decl(const clang::VarDecl *d, bool is_toplevel = true);
+  Decl *make_decl(const clang::RecordDecl *d, bool is_toplevel = true);
+  Decl *make_decl(const clang::TypedefDecl *d, bool is_toplevel = true);
+  Decl *make_decl(const clang::EnumDecl *d, bool is_toplevel = true);
+  Decl *make_decl(const clang::CXXRecordDecl *d, bool is_toplevel = true);
+  Decl *make_decl(const clang::NamespaceDecl *d, bool is_toplevel = true);
+  Decl *make_decl(const clang::ObjCInterfaceDecl *d, bool is_toplevel = true);
+  Decl *make_decl(const clang::ObjCCategoryDecl *d, bool is_toplevel = true);
+  Decl *make_decl(const clang::ObjCProtocolDecl *d, bool is_toplevel = true);
 
-        void write_template(const clang::ClassTemplateSpecializationDecl *d,
-                            std::ostream &out);
-    };
+  void write_template(const clang::ClassTemplateSpecializationDecl *d, std::ostream &out);
+};
 
-    const clang::Decl *parent_decl(const clang::Decl *d);
-}
+const clang::Decl *parent_decl(const clang::Decl *d);
+}  // namespace c2ffi
 
 #endif /* C2FFI_AST_H */

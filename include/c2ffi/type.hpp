@@ -22,196 +22,193 @@
 #ifndef C2FFI_TYPE_H
 #define C2FFI_TYPE_H
 
-#include <string>
-#include <vector>
-#include <ostream>
-
+#include <clang/AST/Decl.h>
+#include <clang/AST/Type.h>
+#include <clang/Frontend/CompilerInstance.h>
 #include <stdint.h>
 
-#include <clang/AST/Type.h>
-#include <clang/AST/Decl.h>
-#include <clang/Frontend/CompilerInstance.h>
+#include <ostream>
+#include <string>
+#include <vector>
 
 #include "c2ffi.hpp"
 
 namespace c2ffi {
-    class C2FFIASTConsumer;
+class C2FFIASTConsumer;
 
-    class Type : public Writable {
-        unsigned int _id;
-    protected:
-        const clang::CompilerInstance &_ci;
-        const clang::Type *_type;
+class Type : public Writable {
+  unsigned int _id;
 
-        uint64_t _bit_offset;
-        uint64_t _bit_size;
-        unsigned _bit_alignment;
+ protected:
+  const clang::CompilerInstance &_ci;
+  const clang::Type *_type;
 
-        friend class PointerType;
-    public:
-        Type(const clang::CompilerInstance &ci, const clang::Type *t);
-        virtual ~Type() { }
+  uint64_t _bit_offset;
+  uint64_t _bit_size;
+  unsigned _bit_alignment;
 
-        static Type* make_type(C2FFIASTConsumer*, const clang::Type*);
+  friend class PointerType;
 
-        unsigned int id() const { return _id; }
-        void set_id(unsigned int id) { _id = id; }
+ public:
+  Type(const clang::CompilerInstance &ci, const clang::Type *t);
+  virtual ~Type() {}
 
-        uint64_t bit_offset() const { return _bit_offset; }
-        void set_bit_offset(uint64_t offset) { _bit_offset = offset; }
+  static Type *make_type(C2FFIASTConsumer *, const clang::Type *);
 
-        uint64_t bit_size() const { return _bit_size; }
-        void set_bit_size(uint64_t size) { _bit_size = size; }
+  unsigned int id() const { return _id; }
+  void set_id(unsigned int id) { _id = id; }
 
-        uint64_t bit_alignment() const { return _bit_alignment; }
-        void set_bit_alignment(uint64_t alignment) { _bit_alignment = alignment; }
+  uint64_t bit_offset() const { return _bit_offset; }
+  void set_bit_offset(uint64_t offset) { _bit_offset = offset; }
 
-        std::string metatype() const;
-    };
+  uint64_t bit_size() const { return _bit_size; }
+  void set_bit_size(uint64_t size) { _bit_size = size; }
 
-    typedef std::string Name;
-    typedef std::vector<Name> NameVector;
+  uint64_t bit_alignment() const { return _bit_alignment; }
+  void set_bit_alignment(uint64_t alignment) { _bit_alignment = alignment; }
 
-    typedef std::pair<Name, Type*> NameTypePair;
-    typedef std::vector<NameTypePair> NameTypeVector;
+  std::string metatype() const;
+};
 
-    typedef std::pair<Name, uint64_t> NameNumPair;
-    typedef std::vector<NameNumPair> NameNumVector;
+typedef std::string Name;
+typedef std::vector<Name> NameVector;
 
-    // :void, etc
-    class SimpleType : public Type {
-        std::string _name;
-    public:
-        SimpleType(const clang::CompilerInstance &ci, const clang::Type *t,
-                   std::string name);
+typedef std::pair<Name, Type *> NameTypePair;
+typedef std::vector<NameTypePair> NameTypeVector;
 
-        const std::string& name() const { return _name; }
+typedef std::pair<Name, uint64_t> NameNumPair;
+typedef std::vector<NameNumPair> NameNumVector;
 
-        DEFWRITER(SimpleType);
-    };
+// :void, etc
+class SimpleType : public Type {
+  std::string _name;
 
-    // typedef'd types, which can exist in a namespace that has to be provided to correctly
-    // disambiguate the name.
-    class TypedefType : public SimpleType {
-        unsigned _ns;
+ public:
+  SimpleType(const clang::CompilerInstance &ci, const clang::Type *t, std::string name);
 
-    public:
-        TypedefType(const clang::CompilerInstance &ci, const clang::Type *t,
-                    std::string name, unsigned ns);
+  const std::string &name() const { return _name; }
 
-        unsigned ns() const { return _ns; }
+  DEFWRITER(SimpleType);
+};
 
-        DEFWRITER(TypedefType);
-    };
+// typedef'd types, which can exist in a namespace that has to be provided to correctly
+// disambiguate the name.
+class TypedefType : public SimpleType {
+  unsigned _ns;
 
-    // :int, :unsigned-char, etc
-    class BasicType : public SimpleType {
-    public:
-        BasicType(const clang::CompilerInstance &ci, const clang::Type *t,
-                  std::string name);
+ public:
+  TypedefType(const clang::CompilerInstance &ci, const clang::Type *t, std::string name,
+              unsigned ns);
 
-        DEFWRITER(BasicType);
-    };
+  unsigned ns() const { return _ns; }
 
-    class BitfieldType : public Type {
-        Type *_base;
-        unsigned int _width;
-    public:
-        BitfieldType(const clang::CompilerInstance &ci, const clang::Type *t,
-                     unsigned int width, Type *base)
-            : Type(ci, t), _base(base), _width(width) { }
+  DEFWRITER(TypedefType);
+};
 
-        virtual ~BitfieldType() { delete _base; }
+// :int, :unsigned-char, etc
+class BasicType : public SimpleType {
+ public:
+  BasicType(const clang::CompilerInstance &ci, const clang::Type *t, std::string name);
 
-        const Type* base() const { return _base; }
-        unsigned int width() const { return _width; }
+  DEFWRITER(BasicType);
+};
 
-        DEFWRITER(BitfieldType);
-    };
+class BitfieldType : public Type {
+  Type *_base;
+  unsigned int _width;
 
-    // This could be simple, but we want to be specific about what
-    // we're pointing _to_
-    class PointerType : public Type {
-        Type *_pointee;
-    public:
-        PointerType(const clang::CompilerInstance &ci, const clang::Type *t,
-                    Type *pointee)
-            : Type(ci, t), _pointee(pointee) { }
-        virtual ~PointerType() { delete _pointee; }
+ public:
+  BitfieldType(const clang::CompilerInstance &ci, const clang::Type *t, unsigned int width,
+               Type *base)
+      : Type(ci, t), _base(base), _width(width) {}
 
-        const Type& pointee() const { return *_pointee; }
-        bool is_string() const;
+  virtual ~BitfieldType() { delete _base; }
 
-        DEFWRITER(PointerType);
-    };
+  const Type *base() const { return _base; }
+  unsigned int width() const { return _width; }
 
-    class ReferenceType : public PointerType {
-    public:
-        ReferenceType(const clang::CompilerInstance &ci, const clang::Type *t,
-                    Type *pointee)
-            : PointerType(ci, t, pointee) { }
-        DEFWRITER(ReferenceType);
-    };
+  DEFWRITER(BitfieldType);
+};
 
-    class ArrayType : public PointerType {
-        uint64_t _size;
-    public:
-        ArrayType(const clang::CompilerInstance &ci, const clang::Type *t,
-                  Type *pointee, uint64_t size)
-            : PointerType(ci, t, pointee), _size(size) { }
+// This could be simple, but we want to be specific about what
+// we're pointing _to_
+class PointerType : public Type {
+  Type *_pointee;
 
-        uint64_t size() const { return _size; }
-        DEFWRITER(ArrayType);
-    };
+ public:
+  PointerType(const clang::CompilerInstance &ci, const clang::Type *t, Type *pointee)
+      : Type(ci, t), _pointee(pointee) {}
+  virtual ~PointerType() { delete _pointee; }
 
-    class RecordType : public SimpleType, public TemplateMixin {
-        bool _is_union;
-        bool _is_class;
-    public:
-        RecordType(C2FFIASTConsumer *ast,
-                   const clang::Type *t,
-                   std::string name, bool is_union = false,
-                   bool is_class = false,
-                   const clang::TemplateArgumentList *arglist = NULL);
+  const Type &pointee() const { return *_pointee; }
+  bool is_string() const;
 
-        bool is_union() const { return _is_union; }
-        bool is_class() const { return _is_class; }
-        DEFWRITER(RecordType);
-    };
+  DEFWRITER(PointerType);
+};
 
-    class EnumType : public SimpleType {
-    public:
-        EnumType(const clang::CompilerInstance &ci, const clang::Type *t,
-                 std::string name)
-            : SimpleType(ci, t, name) { }
-        DEFWRITER(EnumType);
-    };
+class ReferenceType : public PointerType {
+ public:
+  ReferenceType(const clang::CompilerInstance &ci, const clang::Type *t, Type *pointee)
+      : PointerType(ci, t, pointee) {}
+  DEFWRITER(ReferenceType);
+};
 
-    class ComplexType : public Type {
-        Type *_element;
-    public:
-        ComplexType(const clang::CompilerInstance &ci, const clang::Type *t,
-                    Type *element)
-            : Type(ci, t), _element(element) { }
-        virtual ~ComplexType() { delete _element; }
+class ArrayType : public PointerType {
+  uint64_t _size;
 
-        const Type& element() const { return *_element; }
-        bool is_string() const;
+ public:
+  ArrayType(const clang::CompilerInstance &ci, const clang::Type *t, Type *pointee, uint64_t size)
+      : PointerType(ci, t, pointee), _size(size) {}
 
-        DEFWRITER(ComplexType);
-    };
+  uint64_t size() const { return _size; }
+  DEFWRITER(ArrayType);
+};
 
-    // This is a bit of a hack to contain inline declarations (e.g.,
-    // anonymous typedef struct)
-    class DeclType : public Type {
-        Decl *_d;
-    public:
-        DeclType(clang::CompilerInstance &ci, const clang::Type *t,
-                 Decl *d, const clang::Decl *cd);
+class RecordType : public SimpleType, public TemplateMixin {
+  bool _is_union;
+  bool _is_class;
 
-        // Note, this cheats:
-        virtual void write(OutputDriver &od) const;
-    };
-}
+ public:
+  RecordType(C2FFIASTConsumer *ast, const clang::Type *t, std::string name, bool is_union = false,
+             bool is_class = false, const clang::TemplateArgumentList *arglist = NULL);
+
+  bool is_union() const { return _is_union; }
+  bool is_class() const { return _is_class; }
+  DEFWRITER(RecordType);
+};
+
+class EnumType : public SimpleType {
+ public:
+  EnumType(const clang::CompilerInstance &ci, const clang::Type *t, std::string name)
+      : SimpleType(ci, t, name) {}
+  DEFWRITER(EnumType);
+};
+
+class ComplexType : public Type {
+  Type *_element;
+
+ public:
+  ComplexType(const clang::CompilerInstance &ci, const clang::Type *t, Type *element)
+      : Type(ci, t), _element(element) {}
+  virtual ~ComplexType() { delete _element; }
+
+  const Type &element() const { return *_element; }
+  bool is_string() const;
+
+  DEFWRITER(ComplexType);
+};
+
+// This is a bit of a hack to contain inline declarations (e.g.,
+// anonymous typedef struct)
+class DeclType : public Type {
+  Decl *_d;
+
+ public:
+  DeclType(clang::CompilerInstance &ci, const clang::Type *t, Decl *d, const clang::Decl *cd);
+
+  // Note, this cheats:
+  virtual void write(OutputDriver &od) const;
+};
+}  // namespace c2ffi
 
 #endif /* C2FFI_TYPE_H */
