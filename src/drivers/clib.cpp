@@ -20,16 +20,21 @@ void CLibOutputDriver::write(const UnhandledDecl &d) {}
 void CLibOutputDriver::write(const VarDecl &d) {}
 void CLibOutputDriver::write(const FunctionDecl &d) {}
 void CLibOutputDriver::write(const TypedefDecl &d) {
-  os() << "template " << d.name() << ";\n";
-  _sf << "template " << d.name() << ";\n";
+  os() << "typedef " << d.name() << ";\n";
+  _sf << "typedef " << d.orig()->getQualifiedNameAsString() << ";\n";
 }
 
 void CLibOutputDriver::write(const RecordDecl &d) {
-  os() << "class " << d.name() << ";\n";
-  _sf << "class " << d.name() << ";\n";
+  os() << "struct " << d.name() << ";\n";
+  _sf << "struct " << d.name() << ";\n";
 }
 
 void CLibOutputDriver::write(const EnumDecl &d) {}
+
+void CLibOutputDriver::write(const CXXRecordDecl &d) {
+  os() << "class " << d.name() << ";\n";
+  _sf << "class " << d.orig()->getQualifiedNameAsString() << ";\n";
+}
 
 void CLibOutputDriver::close() {
   OutputDriver::close();

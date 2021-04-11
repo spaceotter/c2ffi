@@ -39,7 +39,7 @@ class CLibOutputDriver : public OutputDriver {
   void write(const RecordDecl &d) override;
   void write(const EnumDecl &d) override;
 
-  virtual void write(const CXXRecordDecl &d) {}
+  void write(const CXXRecordDecl &d) override;
   virtual void write(const CXXFunctionDecl &d) {}
   virtual void write(const CXXNamespaceDecl &d) {}
 
