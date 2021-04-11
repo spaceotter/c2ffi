@@ -21,6 +21,8 @@
 #include <stdarg.h>
 #include <stdio.h>
 
+#include <fstream>
+
 #include "c2ffi.hpp"
 
 /*** Add new OutputDrivers here: ***************************************/
@@ -50,4 +52,10 @@ void OutputDriver::comment(char *fmt, ...) {
   va_end(ap);
 }
 
+void OutputDriver::close() {
+  std::ofstream *of = dynamic_cast<std::ofstream *>(_os);
+  if (of != nullptr) {
+    of->close();
+  }
+}
 }  // namespace c2ffi

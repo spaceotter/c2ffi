@@ -66,7 +66,7 @@ static struct option options[] = {
 /* clang-format on */
 
 static void usage(void);
-static c2ffi::OutputDriver *select_driver(std::string name, std::ostream *os);
+static c2ffi::OutputDriver *select_driver(std::string name, std::string outf);
 
 clang::LangStandard::Kind parseStd(std::string std) {
 #define LANGSTANDARD(ident, name, lang, desc, features) \
@@ -78,7 +78,7 @@ clang::LangStandard::Kind parseStd(std::string std) {
 void c2ffi::process_args(config &config, int argc, char *argv[]) {
   int o, index;
   bool output_specified = false;
-  std::ostream *os = &std::cout;
+  std::string driver;
   config.c2ffi_binpath = argv[0];
 
   for (;;) {
@@ -89,6 +89,7 @@ void c2ffi::process_args(config &config, int argc, char *argv[]) {
     switch (o) {
       case 'v': {
         config.verbose = true;
+        break;
       }
 
       case 'M': {
@@ -115,9 +116,7 @@ void c2ffi::process_args(config &config, int argc, char *argv[]) {
           exit(1);
         }
 
-        std::ofstream *of = new std::ofstream;
-        of->open(optarg);
-        os = of;
+        config.outfile = optarg;
         output_specified = true;
         break;
       }
@@ -131,11 +130,11 @@ void c2ffi::process_args(config &config, int argc, char *argv[]) {
         break;
 
       case 'D':
-        if (config.od) {
+        if (!driver.empty()) {
           std::cerr << "Error: you may only specify one output driver" << std::endl;
           exit(1);
         }
-        config.od = select_driver(optarg, os);
+        driver = optarg;
         break;
 
       case 'N':
@@ -225,6 +224,9 @@ void c2ffi::process_args(config &config, int argc, char *argv[]) {
     }
   }
 
+  config.od = select_driver(driver, config.outfile);
+  config.output = &config.od->os();
+
   if (optind >= argc) {
     std::cerr << "Error: No file specified." << std::endl;
     usage();
@@ -241,13 +243,6 @@ void c2ffi::process_args(config &config, int argc, char *argv[]) {
     std::cerr << "Error: Not a regular file: " << config.filename << std::endl;
     exit(1);
   }
-
-  config.output = os;
-
-  if (!config.od)
-    config.od = OutputDrivers[0].fn(os);
-  else
-    config.od->set_os(os);
 }
 
 void usage(void) {
@@ -297,9 +292,30 @@ void usage(void) {
   cout << endl;
 }
 
-c2ffi::OutputDriver *select_driver(std::string name, std::ostream *os) {
+c2ffi::OutputDriver *select_driver(std::string name, std::string outf) {
   using namespace c2ffi;
   using namespace std;
+
+  if (name == "clib") {
+    if (outf.empty()) {
+      cerr << "clib driver requires an output file." << endl;
+      exit(1);
+    }
+    ofstream *hf = new ofstream(outf + ".h");
+    ofstream *sf = new ofstream(outf + ".cpp");
+    return new CLibOutputDriver(hf, sf);
+  }
+
+  ostream *os = nullptr;
+  if (outf.empty()) {
+    os = &cout;
+  } else {
+    os = new ofstream(outf);
+  }
+
+  if (name.empty()) {
+    return OutputDrivers[0].fn(os);
+  }
 
   for (int i = 0;; i++) {
     if (!OutputDrivers[i].name) break;

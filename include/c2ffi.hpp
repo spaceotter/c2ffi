@@ -91,6 +91,7 @@ class OutputDriver {
 
   void set_os(std::ostream *os) { _os = os; }
   std::ostream &os() { return *_os; }
+  virtual void close();
 
   void comment(char *fmt, ...);
 };
@@ -109,6 +110,7 @@ extern OutputDriverField OutputDrivers[];
 #include "c2ffi/template.hpp"
 #include "c2ffi/decl.hpp"
 #include "c2ffi/type.hpp"
+#include "c2ffi/clib.hpp"
 /* clang-format on */
 
 #endif /* C2FFI_H */

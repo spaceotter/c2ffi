@@ -143,7 +143,7 @@ int main(int argc, char *argv[]) {
     extra_error = ci.getDiagnostics().hasErrorOccurred();
   }
   ci.getDiagnosticClient().EndSourceFile();
-  sys.output->flush();
+  sys.od->close();
 
   if (extra_error)
     std::cerr << "Warning: Some errors occurred in internally generated code." << std::endl;

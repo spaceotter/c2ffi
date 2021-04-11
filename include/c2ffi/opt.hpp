@@ -57,6 +57,7 @@ struct config {
   bool macro_inject;
   bool template_output;
 
+  std::string outfile;
   std::string c2ffi_binpath;
   std::string filename;
   std::string to_namespace;
