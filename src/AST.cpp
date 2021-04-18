@@ -49,22 +49,6 @@
 
 using namespace c2ffi;
 
-static std::string value_to_string(clang::APValue* v) {
-  std::string s;
-  llvm::raw_string_ostream ss(s);
-
-  if (v->isInt() && v->getInt().isSigned())
-    v->getInt().print(ss, true);
-  else if (v->isInt())
-    v->getInt().print(ss, false);
-  else if (v->isFloat())
-    v->getFloat().print(ss);
-
-  ss.flush();
-  s.erase(s.find_last_not_of(" \n\r\t") + 1);
-  return s;
-}
-
 void C2FFIASTConsumer::HandleTopLevelDeclInObjCContainer(clang::DeclGroupRef d) {
   _od->write_comment("HandleTopLevelDeclInObjCContainer");
 }
@@ -209,95 +193,19 @@ Decl* C2FFIASTConsumer::make_decl(const clang::FunctionDecl* d, bool is_toplevel
   return fd;
 }
 
-static bool convertUTF32ToUTF8String(const llvm::ArrayRef<char>& Source, std::string& Result) {
-  const char* SourceBegins = Source.data();
-  const size_t SourceLength = Source.size();
-  const char* SourceEnding = SourceBegins + SourceLength;
-  const size_t ResultMaxLen = SourceLength * UNI_MAX_UTF8_BYTES_PER_CODE_POINT;
-  Result.resize(ResultMaxLen);
-  const llvm::UTF32* SourceBeginsUTF32 = reinterpret_cast<const llvm::UTF32*>(SourceBegins);
-  const llvm::UTF32* SourceEndingUTF32 = reinterpret_cast<const llvm::UTF32*>(SourceEnding);
-  llvm::UTF8* ResultBeginsUTF8 = reinterpret_cast<llvm::UTF8*>(&Result[0]);
-  llvm::UTF8* ResultEndingUTF8 = reinterpret_cast<llvm::UTF8*>(&Result[0] + ResultMaxLen);
-  const llvm::ConversionResult CR =
-      llvm::ConvertUTF32toUTF8(&SourceBeginsUTF32, SourceEndingUTF32, &ResultBeginsUTF8,
-                               ResultEndingUTF8, llvm::strictConversion);
-  if (CR != llvm::conversionOK) {
-    Result.clear();
-    return false;
-  }
-  Result.resize(reinterpret_cast<char*>(ResultEndingUTF8) - &Result[0]);
-  return true;
-}
-
 Decl* C2FFIASTConsumer::make_decl(const clang::VarDecl* d, bool is_toplevel) {
-  clang::APValue* v = NULL;
-  std::string name = d->getDeclName().getAsString();
-  std::string value = "";
-  std::string loc = "";
-  bool is_string = false;
-
-  if (name.substr(0, 8) == "__c2ffi_") {
-    name = name.substr(8, std::string::npos);
-
-    clang::Preprocessor& pp = _ci.getPreprocessor();
-    clang::IdentifierInfo& ii = pp.getIdentifierTable().get(llvm::StringRef(name));
-    const clang::MacroInfo* mi = pp.getMacroInfo(&ii);
-
-    if (mi) loc = mi->getDefinitionLoc().printToString(_ci.getSourceManager());
-  }
-
-  if (d->hasInit()) {
-    if (!d->getType()->isDependentType()) {
-      clang::EvaluatedStmt* stmt = d->ensureEvaluatedStmt();
-      clang::Expr* e = clang::cast<clang::Expr>(stmt->Value);
-      if (!e->isValueDependent() && ((v = d->evaluateValue()) || (v = d->getEvaluatedValue()))) {
-        if (v->isLValue()) {
-          clang::APValue::LValueBase base = v->getLValueBase();
-          if (!base.isNull() && base.is<const clang::Expr*>()) {
-            const clang::Expr* e = base.get<const clang::Expr*>();
-
-            if_const_cast(s, clang::StringLiteral, e) {
-              is_string = true;
-
-              if (s->isAscii() || s->isUTF8()) {
-                value = s->getString();
-              } else if (s->getCharByteWidth() == 2) {
-                llvm::StringRef bytes = s->getBytes();
-                llvm::convertUTF16ToUTF8String(llvm::ArrayRef<char>(bytes.data(), bytes.size()),
-                                               value);
-              } else if (s->getCharByteWidth() == 4) {
-                llvm::StringRef bytes = s->getBytes();
-                convertUTF32ToUTF8String(llvm::ArrayRef<char>(bytes.data(), bytes.size()), value);
-              } else {
-              }
-            }
-          }
-        } else {
-          value = value_to_string(v);
-        }
-      }
-    }
-  }
-
-  Type* t = Type::make_type(this, d->getTypeSourceInfo()->getType().getTypePtr());
-  VarDecl* cv = new VarDecl(name, t, value, d->hasExternalStorage(), is_string);
-
-  if (loc != "") cv->set_location(loc);
-
-  return cv;
+  return new VarDecl(*this, d);
 }
 
 Decl* C2FFIASTConsumer::make_decl(const clang::RecordDecl* d, bool is_toplevel) {
-  std::string name = d->getDeclName().getAsString();
-
-  if (is_toplevel && name == "") return NULL;
-
   _cur_decls.insert(d);
-  RecordDecl* rd = new RecordDecl(name, d->isUnion());
-  rd->fill_record_decl(this, d);
+  try {
+    return new RecordDecl(*this, d, is_toplevel);
+  } catch (const invalid_decl& id) {
+    _cur_decls.erase(d);
+  }
 
-  return rd;
+  return nullptr;
 }
 
 bool is_underlying_valid(const clang::Type* t) {
@@ -316,7 +224,7 @@ Decl* C2FFIASTConsumer::make_decl(const clang::TypedefDecl* d, bool is_toplevel)
   const clang::Type* t = d->getUnderlyingType().getTypePtr();
 
   if (is_underlying_valid(t)) {
-    return new TypedefDecl(d->getDeclName().getAsString(), Type::make_type(this, t));
+    return new TypedefDecl(*this, d);
   } else {
     std::cerr << "Skipping typedef to invalid type:" << std::endl;
     d->dump();
@@ -344,56 +252,14 @@ Decl* C2FFIASTConsumer::make_decl(const clang::EnumDecl* d, bool is_toplevel) {
 }
 
 Decl* C2FFIASTConsumer::make_decl(const clang::CXXRecordDecl* d, bool is_toplevel) {
-  if (!d->hasDefinition() || d->getDefinition()->isInvalidDecl()) return NULL;
-
-  std::string name = d->getDeclName().getAsString();
-  const clang::TemplateArgumentList* template_args = NULL;
-
-  if (is_toplevel && name == "") return NULL;
-
-  if_const_cast(cts, clang::ClassTemplateSpecializationDecl, d) {
-    template_args = &(cts->getTemplateArgs());
-  }
-
-  // template specializations will contain a record decl with the same name for unknown
-  // reasons. it is of no interest to the public API since you can't declare anything with its
-  // type, so skip it.
-  if_const_cast(p, clang::CXXRecordDecl, d->getParent()) {
-    if (p->getDeclName().getAsString() == name &&
-        p->getTemplateSpecializationKind() ==
-            clang::TemplateSpecializationKind::TSK_ExplicitInstantiationDefinition) {
-      return nullptr;
-    }
-  }
-
-  bool dependent = d->isDependentType();
-
   _cur_decls.insert(d);
-  CXXRecordDecl* rd = new CXXRecordDecl(this, name, d->isUnion(), d->isClass(), template_args);
-  rd->set_id(add_cxx_decl(d));
-  rd->add_functions(this, d);
-
-  if (!dependent) {
-    rd->fill_record_decl(this, d);
-
-    const clang::ASTRecordLayout& layout = _ci.getASTContext().getASTRecordLayout(d);
-
-    for (clang::CXXRecordDecl::base_class_const_iterator i = d->bases_begin(); i != d->bases_end();
-         ++i) {
-      bool is_virtual = (*i).isVirtual();
-      const clang::CXXRecordDecl* decl = (*i).getType().getTypePtr()->getAsCXXRecordDecl();
-      int64_t offset = 0;
-
-      if (is_virtual)
-        offset = layout.getVBaseClassOffset(decl).getQuantity();
-      else
-        offset = layout.getBaseClassOffset(decl).getQuantity();
-
-      rd->add_parent(decl->getNameAsString(), (CXXRecordDecl::Access)(*i).getAccessSpecifier(),
-                     offset, is_virtual);
-    }
+  try {
+    return new CXXRecordDecl(*this, d, is_toplevel);
+  } catch (const invalid_decl& id) {
+    _cur_decls.erase(d);
   }
-  return rd;
+
+  return nullptr;
 }
 
 Decl* C2FFIASTConsumer::make_decl(const clang::NamespaceDecl* d, bool is_toplevel) {

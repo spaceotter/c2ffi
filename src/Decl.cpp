@@ -21,13 +21,53 @@
 #include <clang/AST/ASTContext.h>
 #include <clang/AST/DeclCXX.h>
 #include <clang/AST/DeclObjC.h>
+#include <clang/AST/RecordLayout.h>
+#include <clang/Lex/Preprocessor.h>
+#include <llvm/Support/ConvertUTF.h>
 
 #include "c2ffi.hpp"
 #include "c2ffi/ast.hpp"
 
 using namespace c2ffi;
 
-Decl::Decl(clang::NamedDecl* d) { _name = d->getDeclName().getAsString(); }
+static std::string value_to_string(clang::APValue* v) {
+  std::string s;
+  llvm::raw_string_ostream ss(s);
+
+  if (v->isInt() && v->getInt().isSigned())
+    v->getInt().print(ss, true);
+  else if (v->isInt())
+    v->getInt().print(ss, false);
+  else if (v->isFloat())
+    v->getFloat().print(ss);
+
+  ss.flush();
+  s.erase(s.find_last_not_of(" \n\r\t") + 1);
+  return s;
+}
+
+static bool convertUTF32ToUTF8String(const llvm::ArrayRef<char>& Source, std::string& Result) {
+  const char* SourceBegins = Source.data();
+  const size_t SourceLength = Source.size();
+  const char* SourceEnding = SourceBegins + SourceLength;
+  const size_t ResultMaxLen = SourceLength * UNI_MAX_UTF8_BYTES_PER_CODE_POINT;
+  Result.resize(ResultMaxLen);
+  const llvm::UTF32* SourceBeginsUTF32 = reinterpret_cast<const llvm::UTF32*>(SourceBegins);
+  const llvm::UTF32* SourceEndingUTF32 = reinterpret_cast<const llvm::UTF32*>(SourceEnding);
+  llvm::UTF8* ResultBeginsUTF8 = reinterpret_cast<llvm::UTF8*>(&Result[0]);
+  llvm::UTF8* ResultEndingUTF8 = reinterpret_cast<llvm::UTF8*>(&Result[0] + ResultMaxLen);
+  const llvm::ConversionResult CR =
+      llvm::ConvertUTF32toUTF8(&SourceBeginsUTF32, SourceEndingUTF32, &ResultBeginsUTF8,
+                               ResultEndingUTF8, llvm::strictConversion);
+  if (CR != llvm::conversionOK) {
+    Result.clear();
+    return false;
+  }
+  Result.resize(reinterpret_cast<char*>(ResultEndingUTF8) - &Result[0]);
+  return true;
+}
+
+Decl::Decl(const clang::NamedDecl* d) { _name = d->getDeclName().getAsString(); }
 
 void Decl::set_location(clang::CompilerInstance& ci, const clang::Decl* d) {
   clang::SourceLocation sloc = d->getLocation();
@@ -36,6 +76,59 @@ void Decl::set_location(clang::CompilerInstance& ci, const clang::Decl* d) {
     std::string loc = sloc.printToString(ci.getSourceManager());
     set_location(loc);
   }
+}
+
+VarDecl::VarDecl(C2FFIASTConsumer& astc, const clang::VarDecl* d)
+    : TypeDecl(astc, d, d->getTypeSourceInfo()->getType().getTypePtr()),
+      _is_extern(d->hasExternalStorage()) {
+  clang::APValue* v = NULL;
+  std::string loc = "";
+  _is_string = false;
+
+  if (_name.substr(0, 8) == "__c2ffi_") {
+    _name = _name.substr(8, std::string::npos);
+
+    clang::Preprocessor& pp = astc.ci().getPreprocessor();
+    clang::IdentifierInfo& ii = pp.getIdentifierTable().get(llvm::StringRef(_name));
+    const clang::MacroInfo* mi = pp.getMacroInfo(&ii);
+
+    if (mi) loc = mi->getDefinitionLoc().printToString(astc.ci().getSourceManager());
+  }
+
+  if (d->hasInit()) {
+    if (!d->getType()->isDependentType()) {
+      clang::EvaluatedStmt* stmt = d->ensureEvaluatedStmt();
+      clang::Expr* e = clang::cast<clang::Expr>(stmt->Value);
+      if (!e->isValueDependent() && ((v = d->evaluateValue()) || (v = d->getEvaluatedValue()))) {
+        if (v->isLValue()) {
+          clang::APValue::LValueBase base = v->getLValueBase();
+          if (!base.isNull() && base.is<const clang::Expr*>()) {
+            const clang::Expr* e = base.get<const clang::Expr*>();
+
+            if_const_cast(s, clang::StringLiteral, e) {
+              _is_string = true;
+
+              if (s->isAscii() || s->isUTF8()) {
+                _value = s->getString();
+              } else if (s->getCharByteWidth() == 2) {
+                llvm::StringRef bytes = s->getBytes();
+                llvm::convertUTF16ToUTF8String(llvm::ArrayRef<char>(bytes.data(), bytes.size()),
+                                               _value);
+              } else if (s->getCharByteWidth() == 4) {
+                llvm::StringRef bytes = s->getBytes();
+                convertUTF32ToUTF8String(llvm::ArrayRef<char>(bytes.data(), bytes.size()), _value);
+              } else {
+              }
+            }
+          }
+        } else {
+          _value = value_to_string(v);
+        }
+      }
+    }
+  }
+
+  if (loc != "") set_location(loc);
 }
 
 FieldsMixin::~FieldsMixin() {
@@ -134,9 +227,10 @@ FunctionDecl::FunctionDecl(C2FFIASTConsumer* ast, std::string name, Type* type, 
   if (storage_class < sizeof(sc2str) / sizeof(*sc2str)) _storage_class = sc2str[storage_class];
 }
 
-void RecordDecl::fill_record_decl(C2FFIASTConsumer* ast, const clang::RecordDecl* d) {
-  clang::ASTContext& ctx = ast->ci().getASTContext();
-  std::string name = d->getDeclName().getAsString();
+RecordDecl::RecordDecl(C2FFIASTConsumer& ast, const clang::RecordDecl* d, bool is_toplevel)
+    : Decl(d), _is_union(d->isUnion()), _bit_size(0), _bit_alignment(0), _d(d) {
+  if (is_toplevel && _name.empty()) throw invalid_decl("Invalid RecordDecl");
+  clang::ASTContext& ctx = ast.ci().getASTContext();
   const clang::Type* t = d->getTypeForDecl();
 
   if (!t->isIncompleteType() && !t->isInstantiationDependentType()) {
@@ -147,12 +241,57 @@ void RecordDecl::fill_record_decl(C2FFIASTConsumer* ast, const clang::RecordDecl
     set_bit_alignment(0);
   }
 
-  if (name == "") set_id(ast->add_decl(d));
+  if (_name == "") set_id(ast.add_decl(d));
 
   for (clang::RecordDecl::field_iterator i = d->field_begin(); i != d->field_end(); i++)
-    add_field(ast, *i);
+    add_field(&ast, *i);
 }
 
 void EnumDecl::add_field(Name name, uint64_t v) { _v.push_back(NameNumPair(name, v)); }
+
+CXXRecordDecl::CXXRecordDecl(C2FFIASTConsumer& ast, const clang::CXXRecordDecl* d, bool is_toplevel)
+    : RecordDecl(ast, d, is_toplevel),
+      TemplateMixin(
+          &ast,
+          dynamic_cast<const clang::ClassTemplateSpecializationDecl*>(d) == nullptr
+              ? nullptr
+              : &dynamic_cast<const clang::ClassTemplateSpecializationDecl*>(d)->getTemplateArgs()),
+      _is_class(d->isClass()) {
+  if (!d->hasDefinition() || d->getDefinition()->isInvalidDecl())
+    throw invalid_decl("Invalid CXXRecord");
+
+  // template specializations will contain a record decl with the same name for unknown
+  // reasons. it is of no interest to the public API since you can't declare anything with its
+  // type, so skip it.
+  if_const_cast(p, clang::CXXRecordDecl, d->getParent()) {
+    if (p->getDeclName().getAsString() == _name &&
+        p->getTemplateSpecializationKind() ==
+            clang::TemplateSpecializationKind::TSK_ExplicitInstantiationDefinition) {
+      throw invalid_decl("Internal template");
+    }
+  }
+
+  set_id(ast.add_cxx_decl(d));
+  add_functions(&ast, d);
+
+  if (!d->isDependentType()) {
+    const clang::ASTRecordLayout& layout = ast.ci().getASTContext().getASTRecordLayout(d);
+
+    for (clang::CXXRecordDecl::base_class_const_iterator i = d->bases_begin(); i != d->bases_end();
+         ++i) {
+      bool is_virtual = (*i).isVirtual();
+      const clang::CXXRecordDecl* decl = (*i).getType().getTypePtr()->getAsCXXRecordDecl();
+      int64_t offset = 0;
+
+      if (is_virtual)
+        offset = layout.getVBaseClassOffset(decl).getQuantity();
+      else
+        offset = layout.getBaseClassOffset(decl).getQuantity();
+
+      add_parent(decl->getNameAsString(), (CXXRecordDecl::Access)(*i).getAccessSpecifier(), offset,
+                 is_virtual);
+    }
+  }
+}
 
 void ObjCInterfaceDecl::add_protocol(Name name) { _protocols.push_back(name); }

@@ -32,15 +32,20 @@
 #include "c2ffi/type.hpp"
 
 namespace c2ffi {
+struct invalid_decl : public std::runtime_error {
+  invalid_decl(const std::string &what_arg) : std::runtime_error(what_arg) {}
+};
 class Decl : public Writable {
-  std::string _name;
   std::string _loc;
   unsigned int _id;
   unsigned int _nsparent;
 
+ protected:
+  std::string _name;
+
  public:
-  Decl(std::string name) : _name(name), _id(0) {}
-  Decl(clang::NamedDecl *d);
+  Decl(std::string name) : _id(0), _name(name) {}
+  Decl(const clang::NamedDecl *d);
   virtual ~Decl() {}
 
   virtual const std::string &name() const { return _name; }
@@ -66,11 +71,13 @@ class UnhandledDecl : public Decl {
   const std::string &kind() const { return _kind; }
 };
 
+// A declaration with an associated type, rather than a type
 class TypeDecl : public Decl {
   Type *_type;
 
  public:
-  TypeDecl(std::string name, Type *type) : Decl(name), _type(type) {}
+  TypeDecl(C2FFIASTConsumer &astc, const clang::NamedDecl *d, const clang::Type *type)
+      : Decl(d), _type(Type::make_type(&astc, type)) {}
   virtual ~TypeDecl() { delete _type; }
 
   DEFWRITER(TypeDecl);
@@ -83,9 +90,7 @@ class VarDecl : public TypeDecl {
   bool _is_string;
 
  public:
-  VarDecl(std::string name, Type *type, std::string value = "", bool is_extern = false,
-          bool is_string = false)
-      : TypeDecl(name, type), _value(value), _is_extern(is_extern), _is_string(is_string) {}
+  VarDecl(C2FFIASTConsumer &astc, const clang::VarDecl *d);
 
   DEFWRITER(VarDecl);
 
@@ -161,8 +166,13 @@ class FunctionsMixin {
 };
 
 class TypedefDecl : public TypeDecl {
+  const clang::TypedefDecl *_d;
+
  public:
-  TypedefDecl(std::string name, Type *type) : TypeDecl(name, type) {}
+  TypedefDecl(C2FFIASTConsumer &astc, const clang::TypedefDecl *d)
+      : TypeDecl(astc, d, d->getUnderlyingType().getTypePtr()), _d(d) {}
+
+  const clang::TypedefDecl *orig() const { return _d; }
 
   DEFWRITER(TypedefDecl);
 };
@@ -174,9 +184,11 @@ class RecordDecl : public Decl, public FieldsMixin {
   uint64_t _bit_size;
   unsigned _bit_alignment;
 
+ protected:
+  const clang::RecordDecl *_d;
+
  public:
-  RecordDecl(std::string name, bool is_union = false)
-      : Decl(name), _is_union(is_union), _bit_size(0), _bit_alignment(0) {}
+  RecordDecl(C2FFIASTConsumer &ast, const clang::RecordDecl *d, bool is_toplevel);
 
   DEFWRITER(RecordDecl);
   bool is_union() const { return _is_union; }
@@ -187,7 +199,7 @@ class RecordDecl : public Decl, public FieldsMixin {
   uint64_t bit_alignment() const { return _bit_alignment; }
   void set_bit_alignment(uint64_t alignment) { _bit_alignment = alignment; }
 
-  void fill_record_decl(C2FFIASTConsumer *ast, const clang::RecordDecl *d);
+  const clang::RecordDecl *orig() const { return _d; }
 };
 
 class EnumDecl : public Decl {
@@ -229,9 +241,9 @@ class CXXRecordDecl : public RecordDecl, public FunctionsMixin, public TemplateM
   bool _is_class;
 
  public:
-  CXXRecordDecl(C2FFIASTConsumer *ast, std::string name, bool is_union = false,
-                bool is_class = false, const clang::TemplateArgumentList *arglist = NULL)
-      : RecordDecl(name, is_union), TemplateMixin(ast, arglist), _is_class(is_class) {}
+  CXXRecordDecl(C2FFIASTConsumer &ast, const clang::CXXRecordDecl *d, bool is_toplevel);
+
+  const clang::CXXRecordDecl *orig() const { return static_cast<const clang::CXXRecordDecl *>(_d); }
 
   DEFWRITER(CXXRecordDecl);
 
