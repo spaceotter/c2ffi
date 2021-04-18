@@ -2,23 +2,42 @@
 
 #include <iomanip>
 #include <sstream>
+#include <filesystem>
 
 #include "c2ffi.hpp"
 
 namespace c2ffi {
+/*
+ * The settings for generating C identifiers from C++
+ */
+struct ManglerConfig {
+  // fetching qualified names from clang should be used instead
+  std::string cpp_separator = "::";
+  // these determine how flattened C names are assembled
+  std::string root_prefix = "upp_";
+  std::string c_separator = "_";
+  std::string struct_prefix = "_struct_";
+  std::string _this = "_upp_this";
+  std::string _return = "_upp_return";
+};
+
+extern ManglerConfig mangleConf;
+
 class CLibOutputDriver : public OutputDriver {
   std::ostream &_sf;
+  const std::filesystem::path _inheader;
+  const std::filesystem::path _outheader;
 
  public:
-  CLibOutputDriver(std::ostream *hf, std::ostream *sf) : OutputDriver(hf), _sf(*sf) {}
+  CLibOutputDriver(const std::filesystem::path &inheader, const std::filesystem::path &outheader, std::ostream *hf, std::ostream *sf) : OutputDriver(hf), _sf(*sf), _inheader(inheader), _outheader(outheader) {}
   ~CLibOutputDriver() override {}
 
-  virtual void write_header() {}
-  virtual void write_namespace(const std::string &ns) {}
-  virtual void write_between() {}
-  virtual void write_footer() {}
+  void write_header() override;
+  void write_namespace(const std::string &ns) override {}
+  void write_between() override {}
+  void write_footer() override;
 
-  virtual void write_comment(const char *text) {}
+  void write_comment(const char *text) override {}
 
   void write(const SimpleType &) override;
   void write(const TypedefType &) override;
@@ -40,14 +59,14 @@ class CLibOutputDriver : public OutputDriver {
   void write(const EnumDecl &d) override;
 
   void write(const CXXRecordDecl &d) override;
-  virtual void write(const CXXFunctionDecl &d) {}
-  virtual void write(const CXXNamespaceDecl &d) {}
+  void write(const CXXFunctionDecl &d) override {}
+  void write(const CXXNamespaceDecl &d) override {}
 
-  virtual void write(const ObjCInterfaceDecl &d) {}
-  virtual void write(const ObjCCategoryDecl &d) {}
-  virtual void write(const ObjCProtocolDecl &d) {}
+  void write(const ObjCInterfaceDecl &d) override {}
+  void write(const ObjCCategoryDecl &d) override {}
+  void write(const ObjCProtocolDecl &d) override {}
 
-  virtual void write(const Writable &w) { w.write(*this); }
+  void write(const Writable &w) override { w.write(*this); }
 
   void close() override;
 };

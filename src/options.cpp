@@ -66,7 +66,7 @@ static struct option options[] = {
 /* clang-format on */
 
 static void usage(void);
-static c2ffi::OutputDriver *select_driver(std::string name, std::string outf);
+static c2ffi::OutputDriver *select_driver(std::string name, std::string outf, std::string inf);
 
 clang::LangStandard::Kind parseStd(std::string std) {
 #define LANGSTANDARD(ident, name, lang, desc, features) \
@@ -224,9 +224,6 @@ void c2ffi::process_args(config &config, int argc, char *argv[]) {
     }
   }
 
-  config.od = select_driver(driver, config.outfile);
-  config.output = &config.od->os();
-
   if (optind >= argc) {
     std::cerr << "Error: No file specified." << std::endl;
     usage();
@@ -234,6 +231,9 @@ void c2ffi::process_args(config &config, int argc, char *argv[]) {
   } else {
     config.filename = std::string(argv[optind++]);
   }
+
+  config.od = select_driver(driver, config.outfile, config.filename);
+  config.output = &config.od->os();
 
   struct stat buf;
   if (stat(config.filename.c_str(), &buf) < 0) {
@@ -292,7 +292,7 @@ void usage(void) {
   cout << endl;
 }
 
-c2ffi::OutputDriver *select_driver(std::string name, std::string outf) {
+c2ffi::OutputDriver *select_driver(std::string name, std::string outf, std::string inf) {
   using namespace c2ffi;
   using namespace std;
 
@@ -301,9 +301,11 @@ c2ffi::OutputDriver *select_driver(std::string name, std::string outf) {
       cerr << "clib driver requires an output file." << endl;
       exit(1);
     }
-    ofstream *hf = new ofstream(outf + ".h");
-    ofstream *sf = new ofstream(outf + ".cpp");
-    return new CLibOutputDriver(hf, sf);
+    filesystem::path h_path(outf + ".h");
+    filesystem::path cpp_path(outf + ".cpp");
+    ofstream *hf = new ofstream(h_path);
+    ofstream *sf = new ofstream(cpp_path);
+    return new CLibOutputDriver(inf, h_path, hf, sf);
   }
 
   ostream *os = nullptr;
