@@ -67,6 +67,8 @@ class Type : public Writable {
   uint64_t bit_alignment() const { return _bit_alignment; }
   void set_bit_alignment(uint64_t alignment) { _bit_alignment = alignment; }
 
+  const clang::Type *orig() const { return _type; }
+
   std::string metatype() const;
 };
 
@@ -97,8 +99,10 @@ class TypedefType : public SimpleType {
   unsigned _ns;
 
  public:
-  TypedefType(const clang::CompilerInstance &ci, const clang::Type *t, std::string name,
+  TypedefType(const clang::CompilerInstance &ci, const clang::TypedefType *t, std::string name,
               unsigned ns);
+
+  const clang::TypedefType *orig() const { return (const clang::TypedefType *)_type; }
 
   unsigned ns() const { return _ns; }
 
@@ -108,7 +112,9 @@ class TypedefType : public SimpleType {
 // :int, :unsigned-char, etc
 class BasicType : public SimpleType {
  public:
-  BasicType(const clang::CompilerInstance &ci, const clang::Type *t, std::string name);
+  BasicType(const clang::CompilerInstance &ci, const clang::BuiltinType *t, std::string name);
+
+  const clang::BuiltinType *orig() const { return (const clang::BuiltinType *)_type; }
 
   DEFWRITER(BasicType);
 };
@@ -148,8 +154,9 @@ class PointerType : public Type {
 
 class ReferenceType : public PointerType {
  public:
-  ReferenceType(const clang::CompilerInstance &ci, const clang::Type *t, Type *pointee)
+  ReferenceType(const clang::CompilerInstance &ci, const clang::ReferenceType *t, Type *pointee)
       : PointerType(ci, t, pointee) {}
+  const clang::ReferenceType *orig() const { return (const clang::ReferenceType *)_type; }
   DEFWRITER(ReferenceType);
 };
 
@@ -157,8 +164,10 @@ class ArrayType : public PointerType {
   uint64_t _size;
 
  public:
-  ArrayType(const clang::CompilerInstance &ci, const clang::Type *t, Type *pointee, uint64_t size)
+  ArrayType(const clang::CompilerInstance &ci, const clang::ConstantArrayType *t, Type *pointee,
+            uint64_t size)
       : PointerType(ci, t, pointee), _size(size) {}
+  const clang::ConstantArrayType *orig() const { return (const clang::ConstantArrayType *)_type; }
 
   uint64_t size() const { return _size; }
   DEFWRITER(ArrayType);
@@ -169,8 +178,10 @@ class RecordType : public SimpleType, public TemplateMixin {
   bool _is_class;
 
  public:
-  RecordType(C2FFIASTConsumer *ast, const clang::Type *t, std::string name, bool is_union = false,
-             bool is_class = false, const clang::TemplateArgumentList *arglist = NULL);
+  RecordType(C2FFIASTConsumer *ast, const clang::RecordType *t, std::string name,
+             bool is_union = false, bool is_class = false,
+             const clang::TemplateArgumentList *arglist = NULL);
+  const clang::RecordType *orig() const { return (const clang::RecordType *)_type; }
 
   bool is_union() const { return _is_union; }
   bool is_class() const { return _is_class; }
@@ -179,8 +190,9 @@ class RecordType : public SimpleType, public TemplateMixin {
 
 class EnumType : public SimpleType {
  public:
-  EnumType(const clang::CompilerInstance &ci, const clang::Type *t, std::string name)
+  EnumType(const clang::CompilerInstance &ci, const clang::EnumType *t, std::string name)
       : SimpleType(ci, t, name) {}
+  const clang::EnumType *orig() const { return (const clang::EnumType *)_type; }
   DEFWRITER(EnumType);
 };
 
@@ -188,9 +200,10 @@ class ComplexType : public Type {
   Type *_element;
 
  public:
-  ComplexType(const clang::CompilerInstance &ci, const clang::Type *t, Type *element)
+  ComplexType(const clang::CompilerInstance &ci, const clang::ComplexType *t, Type *element)
       : Type(ci, t), _element(element) {}
   virtual ~ComplexType() { delete _element; }
+  const clang::ComplexType *orig() const { return (const clang::ComplexType *)_type; }
 
   const Type &element() const { return *_element; }
   bool is_string() const;
@@ -204,7 +217,8 @@ class DeclType : public Type {
   Decl *_d;
 
  public:
-  DeclType(clang::CompilerInstance &ci, const clang::Type *t, Decl *d, const clang::Decl *cd);
+  DeclType(clang::CompilerInstance &ci, const clang::TagType *t, Decl *d, const clang::Decl *cd);
+  const clang::TagType *orig() const { return (const clang::TagType *)_type; }
 
   // Note, this cheats:
   virtual void write(OutputDriver &od) const;

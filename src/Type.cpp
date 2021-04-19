@@ -44,25 +44,26 @@ std::string Type::metatype() const {
 SimpleType::SimpleType(const clang::CompilerInstance &ci, const clang::Type *t, std::string name)
     : Type(ci, t), _name(name) {}
 
-TypedefType::TypedefType(const clang::CompilerInstance &ci, const clang::Type *t, std::string name,
-                         unsigned ns)
+TypedefType::TypedefType(const clang::CompilerInstance &ci, const clang::TypedefType *t,
+                         std::string name, unsigned ns)
     : SimpleType(ci, t, name), _ns(ns) {}
 
-BasicType::BasicType(const clang::CompilerInstance &ci, const clang::Type *t, std::string name)
+BasicType::BasicType(const clang::CompilerInstance &ci, const clang::BuiltinType *t,
+                     std::string name)
     : SimpleType(ci, t, name) {
   const clang::ASTContext &ctx = ci.getASTContext();
   set_bit_size(ctx.getTypeSize(t));
   set_bit_alignment(ctx.getTypeAlign(t));
 }
 
-RecordType::RecordType(C2FFIASTConsumer *ast, const clang::Type *t, std::string name, bool is_union,
-                       bool is_class, const clang::TemplateArgumentList *arglist)
+RecordType::RecordType(C2FFIASTConsumer *ast, const clang::RecordType *t, std::string name,
+                       bool is_union, bool is_class, const clang::TemplateArgumentList *arglist)
     : SimpleType(ast->ci(), t, name),
       TemplateMixin(ast, arglist),
       _is_union(is_union),
       _is_class(is_class) {}
 
-DeclType::DeclType(clang::CompilerInstance &ci, const clang::Type *t, Decl *d,
+DeclType::DeclType(clang::CompilerInstance &ci, const clang::TagType *t, Decl *d,
                    const clang::Decl *cd)
     : Type(ci, t), _d(d) {
   _d->set_location(ci, cd);
@@ -107,7 +108,7 @@ Type *Type::make_type(C2FFIASTConsumer *ast, const clang::Type *t) {
       return new SimpleType(ci, t,
                             std::string("<unknown-builtin-type:") + t->getTypeClassName() + ">");
 
-    return new BasicType(ci, t, make_builtin_name(bt));
+    return new BasicType(ci, bt, make_builtin_name(bt));
   }
 
   if_const_cast(e, clang::ElaboratedType, t) return make_type(ast, e->getNamedType().getTypePtr());
@@ -120,7 +121,8 @@ Type *Type::make_type(C2FFIASTConsumer *ast, const clang::Type *t) {
     return new PointerType(ci, t, make_type(ast, t->getPointeeType().getTypePtr()));
 
   if (t->isReferenceType())
-    return new ReferenceType(ci, t, make_type(ast, t->getPointeeType().getTypePtr()));
+    return new ReferenceType(ci, t->castAs<clang::ReferenceType>(),
+                             make_type(ast, t->getPointeeType().getTypePtr()));
 
   if_const_cast(rt, clang::RecordType, t) {
     clang::RecordDecl *rd = rt->getDecl();
@@ -142,10 +144,10 @@ Type *Type::make_type(C2FFIASTConsumer *ast, const clang::Type *t) {
         !is_temp_spec) {
       Decl *nd = ast->make_decl(rd, false);
       nd->set_ns(ast->add_decl(parent_decl(rd)));
-      return new DeclType(ci, t, nd, rd);
+      return new DeclType(ci, rt, nd, rd);
     } else {
       std::string name = rd->getDeclName().getAsString();
-      RecordType *rec = new RecordType(ast, t, name, rd->isUnion(), rd->isClass());
+      RecordType *rec = new RecordType(ast, rt, name, rd->isUnion(), rd->isClass());
 
       rec->set_id(ast->decl_id(rd));
 
@@ -164,9 +166,9 @@ Type *Type::make_type(C2FFIASTConsumer *ast, const clang::Type *t) {
       clang::Decl *edd = ed->getDecl();
       Decl *nd = ast->make_decl(edd, false);
       nd->set_ns(ast->add_decl(parent_decl(edd)));
-      return new DeclType(ci, t, nd, ed->getDecl());
+      return new DeclType(ci, ed, nd, ed->getDecl());
     } else {
-      EnumType *et = new EnumType(ci, t, name);
+      EnumType *et = new EnumType(ci, ed, name);
 
       if (name == "") et->set_id(ast->decl_id(ed->getDecl()));
 
