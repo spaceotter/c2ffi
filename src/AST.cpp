@@ -179,17 +179,7 @@ Decl* C2FFIASTConsumer::make_decl(const clang::NamedDecl* d, bool is_toplevel) {
 
 Decl* C2FFIASTConsumer::make_decl(const clang::FunctionDecl* d, bool is_toplevel) {
   _cur_decls.insert(d);
-
-  clang::FunctionTemplateSpecializationInfo* spec = d->getTemplateSpecializationInfo();
-  const clang::Type* return_type = d->getReturnType().getTypePtr();
-  FunctionDecl* fd = new FunctionDecl(
-      this, d->getDeclName().getAsString(), Type::make_type(this, return_type), d->isVariadic(),
-      d->isInlineSpecified(), d->getStorageClass(), (spec ? spec->TemplateArguments : NULL));
-
-  for (clang::FunctionDecl::param_const_iterator i = d->param_begin(); i != d->param_end(); i++) {
-    fd->add_field(this, *i);
-  }
-
+  FunctionDecl* fd = new FunctionDecl(this, d);
   return fd;
 }
 

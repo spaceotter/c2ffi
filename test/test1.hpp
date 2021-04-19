@@ -14,6 +14,8 @@ typedef B<double> B_double;
 namespace E {
 class C {
   int n;
+
+ public:
   int get() { return n; }
 };
 }  // namespace E

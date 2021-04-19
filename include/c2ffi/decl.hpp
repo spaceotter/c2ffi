@@ -109,7 +109,7 @@ class FieldsMixin {
 
   void add_field(Name, Type *);
   void add_field(C2FFIASTConsumer *ast, clang::FieldDecl *f);
-  void add_field(C2FFIASTConsumer *ast, clang::ParmVarDecl *v);
+  void add_field(C2FFIASTConsumer *ast, const clang::ParmVarDecl *v);
   const NameTypeVector &fields() const { return _v; }
 };
 
@@ -126,10 +126,14 @@ class FunctionDecl : public Decl, public FieldsMixin, public TemplateMixin {
 
   std::string _storage_class;
 
+ protected:
+  const clang::FunctionDecl *_d;
+
  public:
-  FunctionDecl(C2FFIASTConsumer *ast, std::string name, Type *type, bool is_variadic,
-               bool is_inline, clang::StorageClass storage_class,
-               const clang::TemplateArgumentList *arglist = NULL);
+  FunctionDecl(C2FFIASTConsumer *ast, const clang::FunctionDecl *d);
+  FunctionDecl(C2FFIASTConsumer *ast, const clang::ObjCMethodDecl *d);
+
+  const clang::FunctionDecl *orig() const { return _d; }
 
   DEFWRITER(FunctionDecl);
 
@@ -265,10 +269,9 @@ class CXXFunctionDecl : public FunctionDecl {
   bool _is_pure;
 
  public:
-  CXXFunctionDecl(C2FFIASTConsumer *ast, std::string name, Type *type, bool is_variadic,
-                  bool is_inline, clang::StorageClass storage_class,
-                  const clang::TemplateArgumentList *arglist = NULL)
-      : FunctionDecl(ast, name, type, is_variadic, is_inline, storage_class, arglist) {}
+  CXXFunctionDecl(C2FFIASTConsumer *ast, const clang::CXXMethodDecl *d);
+
+  const clang::CXXMethodDecl *orig() const { return (const clang::CXXMethodDecl *)_d; }
 
   DEFWRITER(CXXFunctionDecl);
 
