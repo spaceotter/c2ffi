@@ -11,19 +11,19 @@ namespace c2ffi {
  * The settings for generating C identifiers from C++
  */
 struct ManglerConfig {
-  // fetching qualified names from clang should be used instead
-  std::string cpp_separator = "::";
   // these determine how flattened C names are assembled
   std::string root_prefix = "upp_";
   std::string c_separator = "_";
-  std::string struct_prefix = "_struct_";
   std::string _this = "_upp_this";
   std::string _return = "_upp_return";
+  std::string dtor = "_dtor";
+  std::string ctor = "_ctor";
 };
 
 extern ManglerConfig mangleConf;
 
 class CLibOutputDriver : public OutputDriver {
+  std::ostream &_hf;
   std::ostream &_sf;
   const std::filesystem::path _inheader;
   const std::filesystem::path _outheader;
@@ -32,7 +32,7 @@ class CLibOutputDriver : public OutputDriver {
  public:
   CLibOutputDriver(const std::filesystem::path &inheader, const std::filesystem::path &outheader,
                    std::ostream *hf, std::ostream *sf)
-      : OutputDriver(hf), _sf(*sf), _inheader(inheader), _outheader(outheader) {}
+      : OutputDriver(hf), _hf(*hf), _sf(*sf), _inheader(inheader), _outheader(outheader) {}
   ~CLibOutputDriver() override {}
 
   void write_header() override;
@@ -72,6 +72,12 @@ class CLibOutputDriver : public OutputDriver {
   void write(const Writable &w) override { w.write(*this); }
 
   void close() override;
+
+ private:
+  // helper functions
+  void write_params(const FieldsMixin &fields, const Type &_return, bool add_types = true,
+                    const std::string &_this = "");
+  void write_fn(const FunctionDecl &d, const std::string &type, const std::string &_this);
 };
 
 }  // namespace c2ffi

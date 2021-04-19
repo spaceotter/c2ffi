@@ -6,6 +6,7 @@ template <class T>
 class B {
  public:
   B(T v) : m(v) {}
+  ~B() {}
   T m;
 };
 typedef B<int> B_int;
@@ -33,7 +34,7 @@ const float baz = 56.3e-6f;
 const double grue = 123.456;
 const long double gruuu = 789.012e19L;
 
-void topf(AB_double *abd);
+void topf(A::B_double *abd, double d);
 
 typedef enum { GREEN, RED, BLUE } color_t;
 typedef unsigned long int my_int;

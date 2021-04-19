@@ -93,6 +93,7 @@ static std::string getCName(const clang::NamedDecl *d) {
     if (const auto *Spec = dyn_cast<ClassTemplateSpecializationDecl>(DC)) {
       os << Spec->getName().str();
       const TemplateArgumentList &TemplateArgs = Spec->getTemplateArgs();
+      os << mangleConf.c_separator;
       printCTemplateArgs(os, TemplateArgs.asArray(), PP);
     } else if (const auto *ND = dyn_cast<NamespaceDecl>(DC)) {
       if (ND->isAnonymousNamespace()) {
@@ -147,17 +148,24 @@ static std::string getCName(const clang::NamedDecl *d) {
 }
 
 struct Identifier {
-  Identifier(const std::string &name);
-  Identifier(const Identifier &parent, const std::string &name);
-  Identifier(const std::string &c, const std::string &cpp) : c(c), cpp(cpp) {}
-  Identifier(const Identifier &parent, const std::string &c, const std::string &cpp);
-  Identifier(const clang::NamedDecl *d) : c(getCName(d)), cpp(d->getQualifiedNameAsString()) {
-    if (const auto *t = dynamic_cast<const clang::ClassTemplateSpecializationDecl *>(d)) {
-      clang::SmallString<128> Buf;
-      llvm::raw_svector_ostream ArgOS(Buf);
-      clang::printTemplateArgumentList(ArgOS, t->getTemplateArgs().asArray(),
-                                       clang::PrintingPolicy(d->getLangOpts()));
-      cpp += ArgOS.str().str();
+  // remember old identifiers to save time, they don't change
+  static std::unordered_map<const clang::NamedDecl *, Identifier> ids;
+
+  Identifier(const clang::NamedDecl *d) {
+    if (ids.count(d)) {
+      c = ids.at(d).c;
+      cpp = ids.at(d).cpp;
+    } else {
+      c = getCName(d);
+      cpp = d->getQualifiedNameAsString();
+      if (const auto *t = dynamic_cast<const clang::ClassTemplateSpecializationDecl *>(d)) {
+        clang::SmallString<128> Buf;
+        llvm::raw_svector_ostream ArgOS(Buf);
+        clang::printTemplateArgumentList(ArgOS, t->getTemplateArgs().asArray(),
+                                         clang::PrintingPolicy(d->getLangOpts()));
+        cpp += ArgOS.str().str();
+      }
+      ids.emplace(std::make_pair(d, *this));
     }
   }
 
@@ -165,25 +173,19 @@ struct Identifier {
   std::string cpp;  // the fully qualified C++ name
 };
 
-Identifier::Identifier(const std::string &name) : c(mangleConf.root_prefix + name), cpp(name) {}
-
-Identifier::Identifier(const Identifier &parent, const std::string &name)
-    : Identifier(parent, name, name) {}
-
-Identifier::Identifier(const Identifier &parent, const std::string &c, const std::string &cpp)
-    : c(parent.c + mangleConf.c_separator + c), cpp(parent.cpp + mangleConf.cpp_separator + cpp) {}
+std::unordered_map<const clang::NamedDecl *, Identifier> Identifier::ids;
 
 void CLibOutputDriver::write_header() {
   std::string macroname = sanitize_identifier(_inheader.stem());
-  os() << "/*\n";
-  os() << " * This header file was generated automatically by c2ffi.\n";
-  os() << " */\n";
-  os() << "#ifndef " << macroname << "_CIFGEN_H\n";
-  os() << "#define " << macroname << "_CIFGEN_H\n";
-  os() << "#ifdef __cplusplus\n";
-  os() << "#include \"" << (std::string)_inheader << "\"\n";
-  os() << "extern \"C\" {\n";
-  os() << "#endif\n\n";
+  _hf << "/*\n";
+  _hf << " * This header file was generated automatically by c2ffi.\n";
+  _hf << " */\n";
+  _hf << "#ifndef " << macroname << "_CIFGEN_H\n";
+  _hf << "#define " << macroname << "_CIFGEN_H\n";
+  _hf << "#ifdef __cplusplus\n";
+  _hf << "#include \"" << (std::string)_inheader << "\"\n";
+  _hf << "extern \"C\" {\n";
+  _hf << "#endif\n\n";
 
   _sf << "/*\n";
   _sf << " * This source file was generated automatically by c2ffi.\n";
@@ -193,22 +195,34 @@ void CLibOutputDriver::write_header() {
 
 void CLibOutputDriver::write_footer() {
   std::string macroname = sanitize_identifier(_inheader.stem());
-  os() << "#ifdef __cplusplus\n";
-  os() << "} // extern \"C\"\n";
-  os() << "#endif // __cplusplus\n";
-  os() << "#endif // " << macroname << "_CIFGEN_H\n";
+  _hf << "#ifdef __cplusplus\n";
+  _hf << "} // extern \"C\"\n";
+  _hf << "#endif // __cplusplus\n";
+  _hf << "#endif // " << macroname << "_CIFGEN_H\n";
 }
 
-void CLibOutputDriver::write(const SimpleType &t) {}
+void CLibOutputDriver::write(const SimpleType &t) {
+  const std::string &n(t.name());
+  if (n.size() > 1 && n[0] == ':') {
+    os() << n.substr(1);
+  } else {
+    os() << t.name();
+  }
+}
 
-void CLibOutputDriver::write(const TypedefType &) {}
+void CLibOutputDriver::write(const TypedefType &t) { os() << Identifier(t.orig()->getDecl()).c; }
 
 void CLibOutputDriver::write(const BasicType &t) {
   os() << ((clang::BuiltinType *)t.orig())->getNameAsCString(clang::PrintingPolicy(*_lo));
 }
 
 void CLibOutputDriver::write(const BitfieldType &t) {}
-void CLibOutputDriver::write(const PointerType &t) {}
+
+void CLibOutputDriver::write(const PointerType &t) {
+  write(t.pointee());
+  os() << "*";
+}
+
 void CLibOutputDriver::write(const ArrayType &t) {}
 void CLibOutputDriver::write(const RecordType &t) {
   Identifier i(t.orig()->getDecl());
@@ -219,10 +233,73 @@ void CLibOutputDriver::write(const ComplexType &t) {}
 
 void CLibOutputDriver::write(const UnhandledDecl &d) {}
 void CLibOutputDriver::write(const VarDecl &d) {}
-void CLibOutputDriver::write(const FunctionDecl &d) {}
+
+void CLibOutputDriver::write_params(const FieldsMixin &f, const Type &_return, bool add_types,
+                                    const std::string &_this) {
+  os() << "(";
+
+  bool first = true;
+
+  if (!_this.empty()) {
+    if (add_types) {
+      os() << _this << "* ";
+    }
+    os() << mangleConf._this;
+    first = false;
+  }
+
+  for (const auto &f : f.fields()) {
+    if (!first) {
+      os() << ", ";
+    }
+    if (add_types) {
+      write(*f.second);
+      os() << " ";
+    }
+    os() << f.first;
+    first = false;
+  }
+
+  os() << ")";
+}
+
+void CLibOutputDriver::write_fn(const FunctionDecl &d, const std::string &type,
+                                const std::string &_this) {
+  Identifier i(d.orig());
+  _hf << "// location: " << d.location() << "\n";
+  _hf << "// " << type << " " << i.cpp << "\n";
+  _sf << "// location: " << d.location() << "\n";
+  _sf << "// " << type << " " << i.cpp << "\n";
+
+  set_os(&_hf);
+  write(d.return_type());
+  set_os(&_sf);
+  write(d.return_type());
+  _hf << " " << i.c;
+  _sf << " " << i.c;
+
+  set_os(&_hf);
+  write_params(d, d.return_type(), true, _this);
+  set_os(&_sf);
+  write_params(d, d.return_type(), true, _this);
+
+  _hf << ";\n\n";
+  _sf << " {\n";
+  _sf << "  return ";
+  if (!_this.empty()) {
+    _sf << mangleConf._this << "->";
+  }
+  _sf << i.cpp;
+  set_os(&_sf);
+  write_params(d, d.return_type(), false);
+  _sf << ";\n}\n\n";
+}
+
+void CLibOutputDriver::write(const FunctionDecl &d) { write_fn(d, "Function", ""); }
 
 void CLibOutputDriver::write(const TypedefDecl &d) {
   _lo = &d.orig()->getLangOpts();
+  set_os(&_hf);
   Identifier i(d.orig());
   os() << "// location: " << d.location() << "\n";
   os() << "#ifdef __cplusplus\n";
@@ -247,29 +324,53 @@ void CLibOutputDriver::write(const TypedefDecl &d) {
 }
 
 void CLibOutputDriver::write(const RecordDecl &d) {
-  os() << "struct " << d.name() << ";\n";
-  _sf << "struct " << d.name() << ";\n";
+  Identifier i(d.orig());
+  _hf << "// location: " << d.location() << "\n";
+  _hf << "#ifdef __cplusplus\n";
+  _hf << "typedef " << i.cpp << " " << i.c << ";\n";
+  _hf << "#else\n";
+  _hf << "struct " << i.c << ";\n";
+  _hf << "#endif // __cplusplus\n";
 }
 
 void CLibOutputDriver::write(const EnumDecl &d) {}
 
 void CLibOutputDriver::write(const CXXRecordDecl &d) {
   Identifier i(d.orig());
-  os() << "// location: " << d.location() << "\n";
-  os() << "#ifdef __cplusplus\n";
-  os() << "typedef " << i.cpp << " " << i.c << ";\n";
-  os() << "#else\n";
-  os() << "struct " << i.c << ";\n";
-  os() << "#endif // __cplusplus\n";
+  _hf << "// location: " << d.location() << "\n";
+  _hf << "#ifdef __cplusplus\n";
+  _hf << "typedef " << i.cpp << " " << i.c << ";\n";
+  _hf << "#else\n";
+  _hf << "struct " << i.c << ";\n";
+  _hf << "#endif // __cplusplus\n\n";
   _sf << "// location: " << d.location() << "\n";
-  _sf << "// Stubs for C++ struct: " << i.cpp << "\n";
-  os() << "\n";
-  _sf << "\n";
+  _sf << "// Stubs for C++ struct: " << i.cpp << "\n\n";
+
+  const auto &funcs = d.functions();
+  for (FunctionVector::const_iterator i = funcs.begin(); i != funcs.end(); i++) {
+    write((const Writable &)*(*i));
+  }
+
+  // the destructor should be written always, even if it's not in the method list
+  _hf << "// Destructor of " << i.cpp << "\n";
+  _sf << "// Destructor of " << i.cpp << "\n";
+  _hf << "void " << i.c << mangleConf.dtor << "(" << i.c << "* " << mangleConf._this << ");\n\n";
+  _sf << "void " << i.c << mangleConf.dtor << "(" << i.c << "* " << mangleConf._this
+      << ") {\n  delete " << mangleConf._this << ";\n}\n\n";
 }
 
-void CLibOutputDriver::write(const CXXFunctionDecl &d) {}
+void CLibOutputDriver::write(const CXXFunctionDecl &d) {
+  const clang::NamedDecl *pd = llvm::dyn_cast<clang::NamedDecl>(d.orig()->getDeclContext());
+  Identifier p(pd);
+  // drop the destructor, which is printed in the recorddecl writer
+  if (!d.name().empty() && d.name()[0] == '~') {
+    return;
+  }
+  write_fn(d, "Method", p.c);
+}
 
 void CLibOutputDriver::close() {
+  set_os(&_hf);
   OutputDriver::close();
   std::ofstream *sf = dynamic_cast<std::ofstream *>(&_sf);
   if (sf != nullptr) {
