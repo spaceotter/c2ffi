@@ -303,6 +303,7 @@ CXXFunctionDecl::CXXFunctionDecl(C2FFIASTConsumer* ast, const clang::CXXMethodDe
       _is_const(d->isConst()),
       _is_pure(d->isPure()) {
   set_location(ast->ci(), d);
+  set_ns(ast->add_cxx_decl(parent_decl(d)));
 }
 
 void ObjCInterfaceDecl::add_protocol(Name name) { _protocols.push_back(name); }

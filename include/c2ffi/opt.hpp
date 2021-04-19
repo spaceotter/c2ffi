@@ -43,6 +43,7 @@ struct config {
         std(clang::LangStandard::lang_unspecified),
         preprocess_only(false),
         with_macro_defs(false),
+        declspec(false),
         nostdinc(false),
         verbose(false),
         wchar_size(0),
