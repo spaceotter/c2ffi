@@ -1,8 +1,8 @@
 #include <stdarg.h>
 
+#include <filesystem>
 #include <iomanip>
 #include <sstream>
-#include <filesystem>
 
 #include "c2ffi.hpp"
 
@@ -27,9 +27,12 @@ class CLibOutputDriver : public OutputDriver {
   std::ostream &_sf;
   const std::filesystem::path _inheader;
   const std::filesystem::path _outheader;
+  const clang::LangOptions *_lo = nullptr;
 
  public:
-  CLibOutputDriver(const std::filesystem::path &inheader, const std::filesystem::path &outheader, std::ostream *hf, std::ostream *sf) : OutputDriver(hf), _sf(*sf), _inheader(inheader), _outheader(outheader) {}
+  CLibOutputDriver(const std::filesystem::path &inheader, const std::filesystem::path &outheader,
+                   std::ostream *hf, std::ostream *sf)
+      : OutputDriver(hf), _sf(*sf), _inheader(inheader), _outheader(outheader) {}
   ~CLibOutputDriver() override {}
 
   void write_header() override;
@@ -59,7 +62,7 @@ class CLibOutputDriver : public OutputDriver {
   void write(const EnumDecl &d) override;
 
   void write(const CXXRecordDecl &d) override;
-  void write(const CXXFunctionDecl &d) override {}
+  void write(const CXXFunctionDecl &d) override;
   void write(const CXXNamespaceDecl &d) override {}
 
   void write(const ObjCInterfaceDecl &d) override {}
