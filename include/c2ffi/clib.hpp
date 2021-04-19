@@ -16,11 +16,13 @@ struct ManglerConfig {
   std::string c_separator = "_";
   std::string _this = "_upp_this";
   std::string _return = "_upp_return";
+  std::string _struct = "_s_";
   std::string dtor = "_dtor";
   std::string ctor = "_ctor";
 };
 
 extern ManglerConfig mangleConf;
+struct Identifier;
 
 class CLibOutputDriver : public OutputDriver {
   std::ostream &_hf;
@@ -77,7 +79,8 @@ class CLibOutputDriver : public OutputDriver {
   // helper functions
   void write_params(const FieldsMixin &fields, const Type &_return, bool add_types = true,
                     const std::string &_this = "");
-  void write_fn(const FunctionDecl &d, const std::string &type, const std::string &_this);
+  void write_fn(const FunctionDecl &d, const std::string &type, const Identifier *parent,
+                bool ctor);
 };
 
 }  // namespace c2ffi

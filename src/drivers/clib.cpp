@@ -147,7 +147,7 @@ static std::string getCName(const clang::NamedDecl *d) {
   return sanitize_identifier(os.str());
 }
 
-struct Identifier {
+struct c2ffi::Identifier {
   // remember old identifiers to save time, they don't change
   static std::unordered_map<const clang::NamedDecl *, Identifier> ids;
 
@@ -226,7 +226,7 @@ void CLibOutputDriver::write(const PointerType &t) {
 void CLibOutputDriver::write(const ArrayType &t) {}
 void CLibOutputDriver::write(const RecordType &t) {
   Identifier i(t.orig()->getDecl());
-  os() << "struct " << i.c;
+  os() << i.c;
 }
 void CLibOutputDriver::write(const EnumType &t) {}
 void CLibOutputDriver::write(const ComplexType &t) {}
@@ -264,63 +264,70 @@ void CLibOutputDriver::write_params(const FieldsMixin &f, const Type &_return, b
 }
 
 void CLibOutputDriver::write_fn(const FunctionDecl &d, const std::string &type,
-                                const std::string &_this) {
+                                const Identifier *parent, bool ctor) {
   Identifier i(d.orig());
+  std::string _this = parent ? parent->c : "";
+
   _hf << "// location: " << d.location() << "\n";
   _hf << "// " << type << " " << i.cpp << "\n";
   _sf << "// location: " << d.location() << "\n";
   _sf << "// " << type << " " << i.cpp << "\n";
 
-  set_os(&_hf);
-  write(d.return_type());
-  set_os(&_sf);
-  write(d.return_type());
-  _hf << " " << i.c;
-  _sf << " " << i.c;
+  if (ctor) {
+    _hf << _this << "* " << _this << mangleConf.ctor;
+    _sf << _this << "* " << _this << mangleConf.ctor;
+  } else {
+    set_os(&_hf);
+    write(d.return_type());
+    set_os(&_sf);
+    write(d.return_type());
+    _hf << " " << i.c;
+    _sf << " " << i.c;
+  }
 
   set_os(&_hf);
-  write_params(d, d.return_type(), true, _this);
+  write_params(d, d.return_type(), true, ctor ? "" : _this);
   set_os(&_sf);
-  write_params(d, d.return_type(), true, _this);
+  write_params(d, d.return_type(), true, ctor ? "" : _this);
 
   _hf << ";\n\n";
   _sf << " {\n";
   _sf << "  return ";
-  if (!_this.empty()) {
-    _sf << mangleConf._this << "->";
+  if (ctor) {
+    _sf << "new " << parent->cpp;
+  } else {
+    if (!_this.empty()) {
+      _sf << mangleConf._this << "->";
+    }
+    _sf << i.cpp;
   }
-  _sf << i.cpp;
   set_os(&_sf);
   write_params(d, d.return_type(), false);
   _sf << ";\n}\n\n";
 }
 
-void CLibOutputDriver::write(const FunctionDecl &d) { write_fn(d, "Function", ""); }
+void CLibOutputDriver::write(const FunctionDecl &d) { write_fn(d, "Function", nullptr, false); }
 
 void CLibOutputDriver::write(const TypedefDecl &d) {
   _lo = &d.orig()->getLangOpts();
-  set_os(&_hf);
   Identifier i(d.orig());
-  os() << "// location: " << d.location() << "\n";
-  os() << "#ifdef __cplusplus\n";
-  if (i.cpp == i.c) os() << "// ";
-  os() << "typedef " << i.cpp << " " << i.c << ";\n";
-  os() << "#else\n";
+  _hf << "// location: " << d.location() << "\n";
+  _hf << "#ifdef __cplusplus\n";
+  if (i.cpp == i.c) _hf << "// ";
+  _hf << "typedef " << i.cpp << " " << i.c << ";\n";
+  _hf << "#else\n";
   // need to add a forward declaration if the target type is a struct - it may not have been
   // declared already.
   const Type *t = &d.type();
-  if (const auto *rt = dynamic_cast<const RecordType *>(t)) {
-    write(d.type());
-    os() << ";\n";
-  }
-  if (const auto *dt = dynamic_cast<const DeclType *>(t)) {
-    os() << "struct " << i.c << ";\n";
+  if (dynamic_cast<const DeclType *>(t) || dynamic_cast<const RecordType *>(t)) {
+    _hf << "typedef struct " << i.c << mangleConf._struct << " " << i.c << ";\n";
   } else {
-    os() << "typedef ";
+    _hf << "typedef ";
+    set_os(&_hf);
     write(d.type());
-    os() << " " << i.c << ";\n";
+    _hf << " " << i.c << ";\n";
   }
-  os() << "#endif // __cplusplus\n\n";
+  _hf << "#endif // __cplusplus\n\n";
 }
 
 void CLibOutputDriver::write(const RecordDecl &d) {
@@ -341,7 +348,7 @@ void CLibOutputDriver::write(const CXXRecordDecl &d) {
   _hf << "#ifdef __cplusplus\n";
   _hf << "typedef " << i.cpp << " " << i.c << ";\n";
   _hf << "#else\n";
-  _hf << "struct " << i.c << ";\n";
+  _hf << "typedef struct " << i.c << mangleConf._struct << " " << i.c << ";\n";
   _hf << "#endif // __cplusplus\n\n";
   _sf << "// location: " << d.location() << "\n";
   _sf << "// Stubs for C++ struct: " << i.cpp << "\n\n";
@@ -366,7 +373,11 @@ void CLibOutputDriver::write(const CXXFunctionDecl &d) {
   if (!d.name().empty() && d.name()[0] == '~') {
     return;
   }
-  write_fn(d, "Method", p.c);
+  if (!d.name().empty() && d.name() == pd->getDeclName().getAsString()) {
+    write_fn(d, "Constructor", &p, true);
+  } else {
+    write_fn(d, "Method", &p, false);
+  }
 }
 
 void CLibOutputDriver::close() {
