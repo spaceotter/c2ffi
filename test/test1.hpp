@@ -1,23 +1,23 @@
 namespace A {
-    typedef struct {
-        int q;
-    } D_t;
-    template <class T> class B {
-    public:
-        B(T v): m(v) {}
-        T m;
-    };
-    typedef B<int> B_int;
-    typedef B<double> B_double;
+typedef struct {
+  int q;
+} D_t;
+template <class T>
+class B {
+ public:
+  B(T v) : m(v) {}
+  T m;
+};
+typedef B<int> B_int;
+typedef B<double> B_double;
 
-    namespace E {
-        class C {
-            int n;
-            int get() { return n; }
-        };
-    }
-
-}
+namespace E {
+class C {
+  int n;
+  int get() { return n; }
+};
+}  // namespace E
+}  // namespace A
 
 typedef A::E::C AEC;
 typedef A::B<int> AB_int;
