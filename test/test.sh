@@ -20,5 +20,6 @@ clang -fsyntax-only -x c out/clib-test1.h
 g++ "test2.cpp" -c -o "out/test2.o"
 "$C2FFI" "test2.hpp" -m -T -D clib -o "out/clib-test2" -I "."
 g++ out/clib-test2.cpp -c -o out/clib-test2.o -I "."
-gcc main2.c out/clib-test2.o out/test2.o -o out/test2 -I "out"
+gcc main2.c -c -o "out/main2.o" -I "out"
+g++ out/test2.o out/clib-test2.o out/main2.o -o out/test2
 ./out/test2

@@ -44,9 +44,16 @@ std::string Type::metatype() const {
 SimpleType::SimpleType(const clang::CompilerInstance &ci, const clang::Type *t, std::string name)
     : Type(ci, t), _name(name) {}
 
-TypedefType::TypedefType(const clang::CompilerInstance &ci, const clang::TypedefType *t,
-                         std::string name, unsigned ns)
-    : SimpleType(ci, t, name), _ns(ns) {}
+TypedefType::TypedefType(C2FFIASTConsumer *astc, const clang::TypedefType *t)
+    : SimpleType(astc->ci(), t, t->getDecl()->getDeclName().getAsString()),
+      _ns(astc->add_decl(parent_decl(t->getDecl()))) {
+  const clang::Type *ct = t->getDecl()->getUnderlyingType().getTypePtrOrNull();
+  if (ct == nullptr) {
+    _underType = nullptr;
+  } else {
+    _underType = Type::make_type(astc, ct);
+  }
+}
 
 BasicType::BasicType(const clang::CompilerInstance &ci, const clang::BuiltinType *t,
                      std::string name)
@@ -93,9 +100,7 @@ Type *Type::make_type(C2FFIASTConsumer *ast, const clang::Type *t) {
   if (t->isVoidType()) return new SimpleType(ci, t, ":void");
 
   if_const_cast(td, clang::TypedefType, t) {
-    const clang::TypedefNameDecl *tdd = td->getDecl();
-    return new TypedefType(ci, td, tdd->getDeclName().getAsString(),
-                           ast->add_decl(parent_decl(tdd)));
+    return new TypedefType(ast, td);
   }
 
   if_const_cast(tt, clang::SubstTemplateTypeParmType, t) {

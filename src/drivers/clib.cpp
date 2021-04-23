@@ -234,6 +234,17 @@ void CLibOutputDriver::write(const ComplexType &t) {}
 void CLibOutputDriver::write(const UnhandledDecl &d) {}
 void CLibOutputDriver::write(const VarDecl &d) {}
 
+bool shouldPointerize(const Type *t) {
+  if (const TypedefType *tt = dynamic_cast<const TypedefType *>(t)) {
+    return shouldPointerize(tt->underType());
+  } else if (dynamic_cast<const ReferenceType *>(t)) {
+    return true;
+  } else if (dynamic_cast<const RecordType *>(t)) {
+    return true;
+  }
+  return false;
+}
+
 void CLibOutputDriver::write_params(const FieldsMixin &f, const Type &_return, bool add_types,
                                     const std::string &_this) {
   os() << "(";
@@ -255,6 +266,9 @@ void CLibOutputDriver::write_params(const FieldsMixin &f, const Type &_return, b
     if (add_types) {
       write(*f.second);
       os() << " ";
+    }
+    if (shouldPointerize(f.second)) {
+      os() << "*";
     }
     os() << f.first;
     first = false;
@@ -318,12 +332,18 @@ void CLibOutputDriver::write(const TypedefDecl &d) {
   _hf << "#else\n";
   // need to add a forward declaration if the target type is a struct - it may not have been
   // declared already.
+  set_os(&_hf);
   const Type *t = &d.type();
   if (dynamic_cast<const DeclType *>(t) || dynamic_cast<const RecordType *>(t)) {
-    _hf << "typedef struct " << i.c << mangleConf._struct << " " << i.c << ";\n";
+    _hf << "typedef struct ";
+    if (dynamic_cast<const RecordType *>(t)) {
+      write(*t);
+    } else {
+      _hf << i.c;
+    }
+    _hf << mangleConf._struct << " " << i.c << ";\n";
   } else {
     _hf << "typedef ";
-    set_os(&_hf);
     write(d.type());
     _hf << " " << i.c << ";\n";
   }

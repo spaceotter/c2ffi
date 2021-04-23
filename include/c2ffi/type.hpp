@@ -97,14 +97,16 @@ class SimpleType : public Type {
 // disambiguate the name.
 class TypedefType : public SimpleType {
   unsigned _ns;
+  const Type * _underType;
 
  public:
-  TypedefType(const clang::CompilerInstance &ci, const clang::TypedefType *t, std::string name,
-              unsigned ns);
+  TypedefType(C2FFIASTConsumer *astc, const clang::TypedefType *t);
 
   const clang::TypedefType *orig() const { return (const clang::TypedefType *)_type; }
 
   unsigned ns() const { return _ns; }
+
+  const Type * underType() const { return _underType; }
 
   DEFWRITER(TypedefType);
 };
