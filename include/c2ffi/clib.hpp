@@ -52,7 +52,7 @@ class CLibOutputDriver : public OutputDriver {
   void write(const ArrayType &) override;
   void write(const RecordType &) override;
   void write(const EnumType &) override;
-  void write(const ReferenceType &) override {}
+  void write(const ReferenceType &) override;
   void write(const TemplateType &) override {}
   void write(const ComplexType &) override;
 

@@ -29,4 +29,6 @@ class Point2D : Point<T, 2> {
 
 typedef Point2D<int> Point2Di;
 int dot(Point2Di a, Point2Di b);
+float dot(Point2D<float> &a, Point2D<float> &b);
+double dot_2(Point2D<double> *a, Point2D<double> *b);
 }

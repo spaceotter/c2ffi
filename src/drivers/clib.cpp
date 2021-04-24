@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "c2ffi.hpp"
 
@@ -150,6 +151,8 @@ static std::string getCName(const clang::NamedDecl *d) {
 struct c2ffi::Identifier {
   // remember old identifiers to save time, they don't change
   static std::unordered_map<const clang::NamedDecl *, Identifier> ids;
+  // Remember generated names to rename duplicates
+  static std::unordered_set<std::string> dups;
 
   Identifier(const clang::NamedDecl *d) {
     if (ids.count(d)) {
@@ -157,6 +160,15 @@ struct c2ffi::Identifier {
       cpp = ids.at(d).cpp;
     } else {
       c = getCName(d);
+      if (dups.count(c)) {
+        unsigned cnt = 2;
+        std::string nc;
+        while (dups.count(nc = c + "_" + std::to_string(cnt)))
+          cnt++;
+        c = nc;
+      }
+      dups.emplace(c);
+
       cpp = d->getQualifiedNameAsString();
       if (const auto *t = dynamic_cast<const clang::ClassTemplateSpecializationDecl *>(d)) {
         clang::SmallString<128> Buf;
@@ -174,6 +186,7 @@ struct c2ffi::Identifier {
 };
 
 std::unordered_map<const clang::NamedDecl *, Identifier> Identifier::ids;
+std::unordered_set<std::string> Identifier::dups;
 
 void CLibOutputDriver::write_header() {
   std::string macroname = sanitize_identifier(_inheader.stem());
@@ -229,6 +242,9 @@ void CLibOutputDriver::write(const RecordType &t) {
   os() << i.c;
 }
 void CLibOutputDriver::write(const EnumType &t) {}
+
+void CLibOutputDriver::write(const ReferenceType &t) { write(t.pointee()); }
+
 void CLibOutputDriver::write(const ComplexType &t) {}
 
 void CLibOutputDriver::write(const UnhandledDecl &d) {}
